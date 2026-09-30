@@ -1,0 +1,25 @@
+給与計算システム
+Copyright (C) 2026 Your Company
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License, version 2, as
+published by the Free Software Foundation.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, see:
+https://www.gnu.org/licenses/gpl-2.0.html
+
+---
+
+本プラグインは GNU General Public License v2（またはそれ以降のバージョン）の下で
+配布されます。ライセンス全文は上記URL、または WordPress.org の GPL 解説ページ
+（https://ja.wordpress.org/about/gpl/）を参照してください。
+
+同梱している third-party ライブラリ（vendor/ 以下、mPDF 等）は composer.json /
+composer.lock に記載の通りそれぞれ独自のライセンス（主にGPLv2/v3互換のオープン
+ソースライセンス）の下で配布されています。再配布・改変する場合は各ライブラリの
+ライセンス条件も確認してください。

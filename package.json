@@ -1,0 +1,17 @@
+{
+  "name": "wp-dev",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "wp-playground-cli server --auto-mount --login",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@wp-playground/cli": "^3.1.53"
+  }
+}

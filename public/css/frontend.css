@@ -1,0 +1,232 @@
+/**
+ * 給与計算システム フロント（固定ページ）用スタイル雛形。
+ * テーマのCSSと衝突しないよう、すべて .ps-frontend 配下に閉じ込めている。
+ * 販売時は、このファイルをクライアントごとの配色に差し替えるだけで
+ * ブランディングを変更できるようにする想定。
+ */
+
+.ps-frontend {
+	max-width: 900px;
+	margin: 0 auto;
+	font-size: 15px;
+	line-height: 1.6;
+	color: #24292f;
+}
+
+.ps-frontend h2 {
+	font-size: 22px;
+	margin: 0 0 16px;
+}
+
+.ps-frontend h3 {
+	font-size: 17px;
+	margin: 24px 0 8px;
+	padding-top: 12px;
+	border-top: 1px solid #e5e5e5;
+}
+
+/* ---- ログインフォーム ---- */
+.ps-frontend-login {
+	max-width: 360px;
+	margin: 40px auto;
+	padding: 32px;
+	border: 1px solid #e0e0e0;
+	border-radius: 8px;
+	background: #fff;
+}
+
+/* ---- フォーム共通 ---- */
+.ps-field {
+	margin: 0 0 14px;
+}
+.ps-field label {
+	display: block;
+	font-weight: 600;
+	margin-bottom: 4px;
+}
+.ps-field label.ps-inline {
+	display: inline-block;
+	font-weight: 400;
+	margin-right: 16px;
+	margin-bottom: 0;
+}
+.ps-field input[type="text"],
+.ps-field input[type="number"],
+.ps-field input[type="date"],
+.ps-field input[type="password"],
+.ps-field select {
+	width: 100%;
+	max-width: 360px;
+	padding: 8px 10px;
+	border: 1px solid #c9c9c9;
+	border-radius: 4px;
+	font-size: 14px;
+}
+.ps-required {
+	color: #c62828;
+}
+
+/* ---- ボタン ---- */
+.ps-btn {
+	display: inline-block;
+	padding: 9px 18px;
+	border-radius: 4px;
+	text-decoration: none;
+	font-weight: 600;
+	font-size: 14px;
+	cursor: pointer;
+	border: 1px solid transparent;
+}
+.ps-btn-primary {
+	background: #2271b1;
+	color: #fff;
+}
+.ps-btn-primary:hover {
+	background: #185685;
+	color: #fff;
+}
+.ps-btn-secondary {
+	background: #f0f0f1;
+	color: #24292f;
+	border-color: #c9c9c9;
+}
+.ps-btn-link {
+	color: #b32d2e;
+	text-decoration: underline;
+	font-size: 14px;
+}
+
+/* ---- 説明文 ---- */
+.ps-description {
+	color: #646970;
+	font-size: 13px;
+}
+
+/* ---- 勤怠取込ウィザードのステップ表示 ---- */
+.ps-import-steps {
+	list-style: none;
+	display: flex;
+	gap: 8px;
+	padding: 12px 16px;
+	margin: 0 0 20px;
+	border: 1px solid #e0e0e0;
+	border-radius: 8px;
+	background: #fff;
+	font-size: 13px;
+}
+.ps-import-steps li.ps-step-current {
+	font-weight: 700;
+	color: #2271b1;
+}
+
+/* ---- 給与計算実行：従業員チェックリスト ---- */
+.ps-employee-checklist {
+	margin-top: 8px;
+	max-height: 240px;
+	overflow-y: auto;
+	border: 1px solid #e0e0e0;
+	border-radius: 4px;
+	padding: 8px 12px;
+	background: #fff;
+	max-width: 420px;
+}
+.ps-checklist-item {
+	display: block;
+	padding: 2px 0;
+	font-weight: 400;
+}
+
+/* ---- 通知 ---- */
+.ps-notice {
+	padding: 10px 14px;
+	border-radius: 4px;
+	margin-bottom: 16px;
+}
+.ps-notice-success {
+	background: #e6f4ea;
+	color: #1a7e34;
+	border: 1px solid #b7dfc2;
+}
+.ps-notice-error {
+	background: #fbeaea;
+	color: #b32d2e;
+	border: 1px solid #f0c2c2;
+}
+.ps-notice-error ul {
+	margin: 0;
+	padding-left: 20px;
+}
+
+/* ---- 一覧テーブル ---- */
+.ps-list-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 16px;
+}
+.ps-table {
+	width: 100%;
+	border-collapse: collapse;
+}
+.ps-table th, .ps-table td {
+	text-align: left;
+	padding: 10px 12px;
+	border-bottom: 1px solid #eee;
+	font-size: 14px;
+}
+.ps-table th {
+	background: #f6f7f7;
+	font-weight: 600;
+}
+.ps-delete-link {
+	color: #b32d2e;
+}
+
+/* ---- 各画面からダッシュボードへ戻るリンク ---- */
+.ps-back-link {
+	margin: 0 0 16px;
+}
+.ps-back-link a {
+	color: #2271b1;
+	text-decoration: none;
+	font-size: 13px;
+}
+.ps-back-link a:hover {
+	text-decoration: underline;
+}
+
+/* ---- ダッシュボードのメニュー導線 ---- */
+.ps-dashboard-nav {
+	margin: 20px 0;
+}
+.ps-dashboard-nav ul {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	list-style: none;
+	margin: 8px 0 0;
+	padding: 0;
+}
+.ps-dashboard-nav a {
+	display: inline-block;
+	padding: 8px 14px;
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	text-decoration: none;
+	color: #2271b1;
+}
+.ps-dashboard-nav a:hover {
+	background: #f0f0f1;
+}
+
+/* ---- ガード表示（未ログイン等） ---- */
+.ps-frontend-guard {
+	max-width: 480px;
+	margin: 40px auto;
+	padding: 24px;
+	border: 1px solid #e0e0e0;
+	border-radius: 8px;
+	background: #fff;
+	text-align: center;
+}
