@@ -8,7 +8,8 @@
       "Bash(sudo apt-get update)",
       "Bash(sudo apt-get install -y gh)",
       "Bash(gh --version)",
-      "Bash(gh repo *)"
+      "Bash(gh repo *)",
+      "mcp__Claude_Code_Remote__read_documentation"
     ]
   }
 }
