@@ -198,31 +198,66 @@ class PS_Payroll_Calculator {
 			);
 		}
 
+		$grade = (int) $employee->standard_monthly_remuneration_grade;
+
+		// 料率マスタに該当行が無い場合に0円として処理を続けると、控除漏れの明細が
+		// 警告なしに作成・確定されてしまうため、例外にして呼び出し元でエラー表示させる。
 		$health_row = $this->rates->get_health_insurance_rate(
 			$target_year_month,
-			$employee->prefecture,
-			(int) $employee->standard_monthly_remuneration_grade
+			(string) $employee->prefecture,
+			$grade
 		);
+		if ( ! $health_row ) {
+			throw new InvalidArgumentException( sprintf(
+				/* translators: 1: 社員コード 2: 対象年月 3: 都道府県 4: 等級 */
+				__( '健康保険料率マスタに該当する行がありません（社員コード: %1$s / %2$s / 都道府県: %3$s / 等級: %4$d）。料率マスタを登録してください。', 'payroll-system' ),
+				$employee->employee_code,
+				$target_year_month,
+				$employee->prefecture,
+				$grade
+			) );
+		}
 
-		// 健康保険料（介護保険なし相当額）と介護保険料（40-64歳のみ・40歳未満/65歳以上は0円）を
+		// 健康保険料（介護保険なし相当額）と介護保険料（介護保険第2号被保険者の月のみ）を
 		// 別々の明細項目として算出する。両者の合計は、従来「health_insuranceに介護保険込みの
 		// employee_amount_with_careをそのまま入れていた」ときと同じ金額になる。
-		$age = $this->calculate_age( $employee->birth_date );
-		$health_insurance_base = (float) ( $health_row->employee_amount ?? 0 );
+		$health_insurance_base  = (float) $health_row->employee_amount;
 		$nursing_care_insurance = 0.0;
-		if ( $age >= 40 && $age < 65 && $health_row && null !== $health_row->employee_amount_with_care ) {
+		if ( $this->is_nursing_care_target_month( $employee->birth_date, $target_year_month ) ) {
+			if ( null === $health_row->employee_amount_with_care ) {
+				throw new InvalidArgumentException( sprintf(
+					/* translators: 1: 社員コード 2: 対象年月 */
+					__( '介護保険料の対象者ですが、健康保険料率マスタに介護保険込みの金額が登録されていません（社員コード: %1$s / %2$s）。', 'payroll-system' ),
+					$employee->employee_code,
+					$target_year_month
+				) );
+			}
 			$nursing_care_insurance = (float) $health_row->employee_amount_with_care - $health_insurance_base;
 		}
 
-		$pension_row = $this->rates->get_pension_rate(
-			$target_year_month,
-			(int) $employee->standard_monthly_remuneration_grade
-		);
-		$pension = (float) ( $pension_row->employee_amount ?? 0 );
+		$pension_row = $this->rates->get_pension_rate( $target_year_month, $grade );
+		if ( ! $pension_row ) {
+			throw new InvalidArgumentException( sprintf(
+				/* translators: 1: 社員コード 2: 対象年月 3: 等級 */
+				__( '厚生年金保険料率マスタに該当する行がありません（社員コード: %1$s / %2$s / 等級: %3$d）。料率マスタを登録してください。', 'payroll-system' ),
+				$employee->employee_code,
+				$target_year_month,
+				$grade
+			) );
+		}
+		$pension = (float) $pension_row->employee_amount;
 
 		$business_type = get_option( 'payroll_system_business_type', 'general' );
 		$employment_insurance_row = $this->rates->get_employment_insurance_rate( $target_year_month, $business_type );
-		$employment_insurance = $total_gross * (float) ( $employment_insurance_row->employee_rate ?? 0 );
+		if ( ! $employment_insurance_row ) {
+			throw new InvalidArgumentException( sprintf(
+				/* translators: 1: 対象年月 2: 事業区分 */
+				__( '雇用保険料率マスタに該当する行がありません（%1$s / 事業区分: %2$s）。料率マスタを登録してください。', 'payroll-system' ),
+				$target_year_month,
+				$business_type
+			) );
+		}
+		$employment_insurance = $total_gross * (float) $employment_insurance_row->employee_rate;
 
 		return array(
 			'health_insurance'      => round( $health_insurance_base, 0 ),
@@ -239,10 +274,25 @@ class PS_Payroll_Calculator {
 	private function calculate_income_tax( float $taxable_amount, float $social_insurance_total, $employee, string $target_year_month ): float {
 		$base_for_tax = $taxable_amount - $social_insurance_total;
 
+		// 社会保険料控除後の金額が0円以下なら源泉徴収税額は0円（税額表を引くまでもない）
+		if ( $base_for_tax <= 0 ) {
+			return 0.0;
+		}
+
 		$row = $this->rates->get_income_tax_row( $target_year_month, $employee->tax_column, $base_for_tax );
 
+		// 該当行が無いのは「税額表が未登録」か「税額表の最高額を超えている」場合。
+		// どちらも0円で続行すると源泉徴収漏れになるため、エラーにして担当者に知らせる。
+		// TODO: 税額表の最高額超過分の計算式（電算機計算の特例等）を実装する
 		if ( ! $row ) {
-			return 0.0; // TODO: 税額表の範囲外（最高額超過等）の扱いを実装する
+			throw new InvalidArgumentException( sprintf(
+				/* translators: 1: 社員コード 2: 対象年月 3: 区分 4: 金額 */
+				__( '所得税額表に該当する行がありません（社員コード: %1$s / %2$s / 区分: %3$s / 社会保険料控除後の金額: %4$s円）。税額表が未登録か、税額表の範囲を超えています。', 'payroll-system' ),
+				$employee->employee_code,
+				$target_year_month,
+				$employee->tax_column,
+				number_format( $base_for_tax )
+			) );
 		}
 
 		if ( $employee->tax_column === 'otsu' ) {
@@ -271,16 +321,26 @@ class PS_Payroll_Calculator {
 		) );
 	}
 
-	private function calculate_age( ?string $birth_date ): int {
+	/**
+	 * 対象年月が介護保険第2号被保険者（40歳以上65歳未満）の期間に当たるかを判定する。
+	 * 実行日時点の年齢ではなく対象年月で判定する（過去月の再計算・訂正でも結果が変わらないように）。
+	 *
+	 * 介護保険料は「40歳に達した日（誕生日の前日）の属する月」から
+	 * 「65歳に達した日（誕生日の前日）の属する月の前月」まで徴収する。
+	 */
+	private function is_nursing_care_target_month( ?string $birth_date, string $target_year_month ): bool {
 		if ( empty( $birth_date ) ) {
-			return 0;
+			return false;
 		}
 		try {
-			$birth = new DateTime( $birth_date );
-			$now   = new DateTime();
-			return (int) $birth->diff( $now )->y;
+			$birth = new DateTimeImmutable( $birth_date );
 		} catch ( Exception $e ) {
-			return 0;
+			return false;
 		}
+
+		$start_month = $birth->modify( '+40 years' )->modify( '-1 day' )->format( 'Y-m' );
+		$end_month   = $birth->modify( '+65 years' )->modify( '-1 day' )->format( 'Y-m' ); // この月から対象外
+
+		return $target_year_month >= $start_month && $target_year_month < $end_month;
 	}
 }

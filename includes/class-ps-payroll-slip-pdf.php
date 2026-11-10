@@ -9,9 +9,11 @@ if ( ! defined( 'ABSPATH' ) ) {
  * composerのオートローダーはここで初めて読み込む（他の全リクエストで毎回
  * 読み込むと無駄なため、実際にPDFを生成するタイミングまで遅延させる）。
  *
- * 生成したPDFは wp-content/uploads/payroll/slips/ に保存し、
- * wp_ps_payroll_slips.pdf_file_path にパスを記録して使い回す
- * （既にファイルがあれば再生成しない。$force=true で強制再生成）。
+ * 生成したPDFはダウンロードのたびに作り直す一時ファイルとして扱い、サーバーには残さない。
+ * 保存先は wp-content/uploads/payroll/slips/ だが、ファイル名は推測できないランダム値にし、
+ * 呼び出し元（PS_Payroll_Pdf_Controller）が送信後に必ず削除する。
+ * uploads配下は公開ディレクトリであり、.htaccessによるアクセス拒否はApache以外
+ * （nginx等）では効かないため、「推測できない名前」と「残さない」の両方で守る。
  */
 class PS_Payroll_Slip_Pdf {
 
@@ -20,38 +22,63 @@ class PS_Payroll_Slip_Pdf {
 		return trailingslashit( $upload_dir['basedir'] ) . 'payroll/slips/';
 	}
 
-	private static function ensure_dir(): string {
-		$dir = self::dir();
+	/**
+	 * ディレクトリを作成し、外部からのアクセス拒否用の .htaccess（Apache 2.2/2.4両対応）と
+	 * ディレクトリ一覧防止用の index.php を置く。既存ディレクトリにも毎回上書きで置き直す。
+	 */
+	public static function protect_dir( string $dir ): string {
+		$dir = trailingslashit( $dir );
 		if ( ! file_exists( $dir ) ) {
 			wp_mkdir_p( $dir );
-			file_put_contents( $dir . '.htaccess', "Deny from all\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+		}
+		$htaccess = "<IfModule mod_authz_core.c>\n\tRequire all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\n\tDeny from all\n</IfModule>\n";
+		if ( ! file_exists( $dir . '.htaccess' ) || file_get_contents( $dir . '.htaccess' ) !== $htaccess ) { // phpcs:ignore WordPress.WP.AlternativeFunctions
+			file_put_contents( $dir . '.htaccess', $htaccess ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+		}
+		if ( ! file_exists( $dir . 'index.php' ) ) {
 			file_put_contents( $dir . 'index.php', "<?php\n// Silence is golden.\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 		}
 		return $dir;
 	}
 
+	private static function ensure_dir(): string {
+		return self::protect_dir( self::dir() );
+	}
+
 	private static function mpdf_tmp_dir(): string {
 		$upload_dir = wp_upload_dir();
-		$dir        = trailingslashit( $upload_dir['basedir'] ) . 'payroll/mpdf-tmp/';
-		if ( ! file_exists( $dir ) ) {
-			wp_mkdir_p( $dir );
-		}
-		return $dir;
+		return self::protect_dir( trailingslashit( $upload_dir['basedir'] ) . 'payroll/mpdf-tmp/' );
 	}
 
 	/**
-	 * 明細のPDFを生成し、ファイルパスを返す。
+	 * 以前のバージョンで slips/ に保存していた（社員コード・年月から推測できる名前の）
+	 * PDFを全て削除し、pdf_file_path を空にする。DB_VERSION 1.5.0へのアップグレード時に呼ぶ。
+	 * PDFは毎回再生成するため、削除しても機能上の影響はない。
+	 */
+	public static function purge_stored_files(): void {
+		$dir = self::ensure_dir();
+		foreach ( (array) glob( $dir . '*.pdf' ) as $file ) {
+			if ( is_file( $file ) ) {
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_unlink
+				@unlink( $file );
+			}
+		}
+
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$wpdb->query( "UPDATE {$wpdb->prefix}ps_payroll_slips SET pdf_file_path = NULL WHERE pdf_file_path IS NOT NULL" );
+	}
+
+	/**
+	 * 明細のPDFを一時ファイルとして生成し、そのパスを返す。
+	 * 返したファイルは呼び出し元が送信後に削除すること（サーバーに残さない）。
 	 *
 	 * @return string|WP_Error
 	 */
-	public static function generate( int $slip_id, bool $force = false ) {
+	public static function generate( int $slip_id ) {
 		$slip = PS_Payroll_Slip::find( $slip_id );
 		if ( ! $slip ) {
 			return new WP_Error( 'not_found', __( '給与明細が見つかりません。', 'payroll-system' ) );
-		}
-
-		if ( ! $force && ! empty( $slip->pdf_file_path ) && file_exists( $slip->pdf_file_path ) ) {
-			return $slip->pdf_file_path;
 		}
 
 		$employee = PS_Employee::find( (int) $slip->employee_id );
@@ -69,7 +96,8 @@ class PS_Payroll_Slip_Pdf {
 		require_once $autoload;
 
 		$dir       = self::ensure_dir();
-		$file_name = sprintf( 'slip_%s_%s.pdf', sanitize_file_name( $employee->employee_code ), $slip->target_year_month );
+		// 社員コード・年月を含めると第三者がURLを推測できるため、ランダムな名前にする
+		$file_name = 'slip_' . bin2hex( random_bytes( 16 ) ) . '.pdf';
 		$file_path = $dir . $file_name;
 
 		$attendance = PS_Attendance::find( (int) $slip->employee_id, $slip->target_year_month );
@@ -87,19 +115,16 @@ class PS_Payroll_Slip_Pdf {
 			$mpdf->WriteHTML( $html );
 			$mpdf->Output( $file_path, \Mpdf\Output\Destination::FILE );
 		} catch ( \Throwable $e ) {
+			if ( file_exists( $file_path ) ) {
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_unlink
+				@unlink( $file_path );
+			}
 			return new WP_Error( 'mpdf_error', sprintf(
 				/* translators: %s: エラーメッセージ */
 				__( 'PDF生成に失敗しました: %s', 'payroll-system' ),
 				$e->getMessage()
 			) );
 		}
-
-		global $wpdb;
-		$wpdb->update(
-			$wpdb->prefix . 'ps_payroll_slips',
-			array( 'pdf_file_path' => $file_path ),
-			array( 'id' => $slip_id )
-		);
 
 		return $file_path;
 	}

@@ -36,7 +36,7 @@ class PS_Payroll_Slip {
 	 * PS_Payroll_Calculator::calculate() の結果を保存する。
 	 * 同一従業員・同一対象年月の明細が既にあれば再計算として上書きし、無ければ新規作成する。
 	 * ただし確定済み（status=confirmed/corrected）の明細は上書きしない。確定後の修正は
-	 * correct() を使う「訂正」フローで行う。
+	 * correct() を使う「訂正」フローで行う。再計算・訂正のどちらでも、手入力の調整項目は引き継ぐ。
 	 *
 	 * @return array|WP_Error 成功時 [ 'id', 'action' => 'created'|'recalculated', 'before', 'after' ]
 	 */
@@ -70,6 +70,8 @@ class PS_Payroll_Slip {
 
 		if ( $existing ) {
 			$wpdb->update( self::table(), $data, array( 'id' => $existing->id ) );
+			// 計算結果の調整項目は常に0なので、手入力済みの調整項目を引き継いで合計を再計算する
+			self::update_adjustments( (int) $existing->id, self::extract_adjustments( $existing ) );
 			return array(
 				'id'     => (int) $existing->id,
 				'action' => 'recalculated',
@@ -144,7 +146,30 @@ class PS_Payroll_Slip {
 			'updated_at'               => current_time( 'mysql' ),
 		), array( 'id' => $id ) );
 
+		// 計算結果の調整項目は常に0なので、訂正前に手入力されていた調整項目
+		// （年末調整の還付・徴収等）を引き継いで合計を再計算する
+		self::update_adjustments( $id, self::extract_adjustments( $slip ) );
+
 		return true;
+	}
+
+	/**
+	 * 明細に保存されている手入力の調整項目（update_adjustments()で扱う7項目）を取り出す。
+	 * 再計算・訂正で計算結果を上書きするときに、これらが0に戻らないよう引き継ぐために使う。
+	 */
+	private static function extract_adjustments( $slip ): array {
+		$gross      = json_decode( (string) $slip->gross_amounts_json, true ) ?: array();
+		$deductions = json_decode( (string) $slip->deduction_amounts_json, true ) ?: array();
+
+		return array(
+			'social_insurance_adjustment' => (float) ( $deductions['social_insurance_adjustment'] ?? 0 ),
+			'adjustment_deduction'        => (float) ( $deductions['adjustment_deduction'] ?? 0 ),
+			'nenmatsu_chousei_deduction'  => (float) ( $deductions['nenmatsu_chousei_deduction'] ?? 0 ),
+			'nenmatsu_chousei_refund'     => (float) ( $deductions['nenmatsu_chousei_refund'] ?? 0 ),
+			'prior_year_adjustment'       => (float) ( $deductions['prior_year_adjustment'] ?? 0 ),
+			'cash_payment'                => (float) ( $gross['cash_payment'] ?? 0 ),
+			'in_kind_payment'             => (float) ( $gross['in_kind_payment'] ?? 0 ),
+		);
 	}
 
 	/**

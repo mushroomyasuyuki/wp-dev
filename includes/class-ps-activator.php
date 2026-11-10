@@ -50,6 +50,9 @@ class PS_Activator {
 			self::create_tables();
 			self::create_default_pages();
 			self::apply_lp_page_settings_to_existing_pages();
+			// 1.5.0：給与明細PDFをサーバーに残さない方式に変更したため、以前のバージョンが
+			// 推測可能なファイル名で保存していたPDFを削除する（何度呼んでも安全）。
+			PS_Payroll_Slip_Pdf::purge_stored_files();
 			update_option( 'payroll_system_db_version', PAYROLL_SYSTEM_DB_VERSION );
 		} finally {
 			self::release_upgrade_lock();

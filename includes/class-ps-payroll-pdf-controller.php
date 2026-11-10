@@ -42,9 +42,9 @@ class PS_Payroll_Pdf_Controller {
 			wp_die( esc_html__( '確定済みの明細のみPDF出力できます。', 'payroll-system' ) );
 		}
 
-		// 訂正・調整で金額が変わってもキャッシュされたPDFが古いまま配布されないよう、
-		// ダウンロードのたびに強制的に再生成する（1ページのみで生成コストは小さい）。
-		$result = PS_Payroll_Slip_Pdf::generate( $id, true );
+		// PDFはダウンロードのたびに一時ファイルとして生成し、送信後に削除する
+		// （訂正・調整後も常に最新の内容になり、サーバーに明細ファイルが残らない）。
+		$result = PS_Payroll_Slip_Pdf::generate( $id );
 		if ( is_wp_error( $result ) ) {
 			wp_die( esc_html( $result->get_error_message() ) );
 		}
@@ -52,7 +52,7 @@ class PS_Payroll_Pdf_Controller {
 		$employee      = PS_Employee::find( (int) $slip->employee_id );
 		$download_name = sprintf( '%s_%s.pdf', $slip->target_year_month, $employee ? $employee->employee_code : $slip->employee_id );
 
-		$this->stream_file( $result, $download_name, 'application/pdf' );
+		$this->stream_file( $result, $download_name, 'application/pdf', true );
 	}
 
 	/**
@@ -77,25 +77,23 @@ class PS_Payroll_Pdf_Controller {
 		}
 
 		$upload_dir = wp_upload_dir();
-		$tmp_dir    = trailingslashit( $upload_dir['basedir'] ) . 'payroll/tmp/';
-		wp_mkdir_p( $tmp_dir );
-		$tmp_zip = $tmp_dir . 'slips_' . get_current_user_id() . '_' . time() . '.zip';
+		$tmp_dir    = PS_Payroll_Slip_Pdf::protect_dir( trailingslashit( $upload_dir['basedir'] ) . 'payroll/tmp/' );
+		$tmp_zip    = $tmp_dir . 'slips_' . bin2hex( random_bytes( 16 ) ) . '.zip';
 
 		$zip = new ZipArchive();
 		if ( true !== $zip->open( $tmp_zip, ZipArchive::CREATE | ZipArchive::OVERWRITE ) ) {
 			wp_die( esc_html__( 'ZIPファイルの作成に失敗しました。', 'payroll-system' ) );
 		}
 
-		$added = 0;
+		$added     = 0;
+		$pdf_files = array();
 		foreach ( $ids as $id ) {
 			$slip = PS_Payroll_Slip::find( $id );
 			if ( ! $slip || ! $this->is_confirmed_status( $slip->status ) ) {
 				continue;
 			}
 
-			// 訂正・調整で金額が変わってもキャッシュされたPDFが古いまま配布されないよう、
-		// ダウンロードのたびに強制的に再生成する（1ページのみで生成コストは小さい）。
-		$result = PS_Payroll_Slip_Pdf::generate( $id, true );
+			$result = PS_Payroll_Slip_Pdf::generate( $id );
 			if ( is_wp_error( $result ) ) {
 				continue;
 			}
@@ -103,9 +101,16 @@ class PS_Payroll_Pdf_Controller {
 			$employee   = PS_Employee::find( (int) $slip->employee_id );
 			$entry_name = sprintf( '%s_%s.pdf', $slip->target_year_month, $employee ? $employee->employee_code : $slip->employee_id );
 			$zip->addFile( $result, $entry_name );
+			$pdf_files[] = $result;
 			$added++;
 		}
 		$zip->close();
+
+		// ZipArchiveはclose()の時点でファイルを読み込むため、ここで個別PDFを削除してよい
+		foreach ( $pdf_files as $pdf_file ) {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_unlink
+			@unlink( $pdf_file );
+		}
 
 		if ( 0 === $added ) {
 			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_unlink
@@ -135,20 +140,31 @@ class PS_Payroll_Pdf_Controller {
 			wp_die( esc_html__( 'この明細は表示できません。', 'payroll-system' ) );
 		}
 
-		// 訂正・調整で金額が変わってもキャッシュされたPDFが古いまま配布されないよう、
-		// ダウンロードのたびに強制的に再生成する（1ページのみで生成コストは小さい）。
-		$result = PS_Payroll_Slip_Pdf::generate( $id, true );
+		// PDFはダウンロードのたびに一時ファイルとして生成し、送信後に削除する
+		// （訂正・調整後も常に最新の内容になり、サーバーに明細ファイルが残らない）。
+		$result = PS_Payroll_Slip_Pdf::generate( $id );
 		if ( is_wp_error( $result ) ) {
 			wp_die( esc_html( $result->get_error_message() ) );
 		}
 
 		$download_name = sprintf( '%s_%s.pdf', $slip->target_year_month, $employee->employee_code );
-		$this->stream_file( $result, $download_name, 'application/pdf' );
+		$this->stream_file( $result, $download_name, 'application/pdf', true );
 	}
 
 	private function stream_file( string $path, string $download_name, string $content_type, bool $delete_after = false ) {
 		if ( ! file_exists( $path ) ) {
 			wp_die( esc_html__( 'ファイルが見つかりません。', 'payroll-system' ) );
+		}
+
+		if ( $delete_after ) {
+			// クライアントが途中で接続を切ってスクリプトが中断された場合でも、
+			// 一時ファイルが残らないようシャットダウン時に削除する
+			register_shutdown_function( static function () use ( $path ) {
+				if ( file_exists( $path ) ) {
+					// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_unlink
+					@unlink( $path );
+				}
+			} );
 		}
 
 		nocache_headers();
@@ -157,11 +173,6 @@ class PS_Payroll_Pdf_Controller {
 		header( 'Content-Length: ' . filesize( $path ) );
 
 		readfile( $path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_read_readfile
-
-		if ( $delete_after ) {
-			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_unlink
-			@unlink( $path );
-		}
 		exit;
 	}
 }

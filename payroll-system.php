@@ -27,7 +27,7 @@ define( 'PAYROLL_SYSTEM_VERSION', '0.1.0' );
 define( 'PAYROLL_SYSTEM_PLUGIN_FILE', __FILE__ );
 define( 'PAYROLL_SYSTEM_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'PAYROLL_SYSTEM_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
-define( 'PAYROLL_SYSTEM_DB_VERSION', '1.4.0' ); // テーブル構造・固定ページ構成（page_specs）を変更したら上げる。
+define( 'PAYROLL_SYSTEM_DB_VERSION', '1.5.0' ); // テーブル構造・固定ページ構成（page_specs）を変更したら上げる。
 // maybe_upgrade()はこの値と保存済みオプションが一致する限り何もしないため、
 // 新しい固定ページ種別の追加だけの変更でも、既存サイトに反映させるには
 // この値を必ず更新すること（今回：ダッシュボード固定ページ追加のため1.2.0に）。
