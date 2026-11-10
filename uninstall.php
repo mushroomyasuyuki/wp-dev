@@ -9,7 +9,8 @@
  * 運用上は、安易に全削除せず、以下のいずれかを推奨する：
  *   1) デフォルトでは何もしない（テーブルを残す）
  *   2) 削除前に管理画面でエクスポート（バックアップ）を必須フローにする
- * 以下はテーブルを完全削除する実装例だが、デフォルトでは無効化してある。
+ * 以下はテーブル・設定・自動作成ページ・uploads/payroll/配下のファイルを完全削除する実装だが、
+ * デフォルトでは無効化してある。
  */
 
 if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
@@ -35,6 +36,7 @@ $tables = array(
 	'ps_rate_premium_wage',
 	'ps_payroll_slips',
 	'ps_audit_log',
+	'ps_employee_sessions',
 );
 
 foreach ( $tables as $table ) {
@@ -42,5 +44,49 @@ foreach ( $tables as $table ) {
 	$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}{$table}" );
 }
 
-delete_option( 'payroll_system_db_version' );
+// 設定・固定ページID・DBバージョン等、payroll_system_ で始まるオプションをすべて削除
+// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+$option_names = $wpdb->get_col( $wpdb->prepare(
+	"SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s",
+	$wpdb->esc_like( 'payroll_system_' ) . '%'
+) );
+
+// 有効化時に自動作成した固定ページ（ショートコードのみのページ）を削除する。
+// オプションを消す前にページIDを読み出しておく。
+$page_ids = get_option( 'payroll_system_page_ids', array() );
+if ( is_array( $page_ids ) ) {
+	foreach ( $page_ids as $page_id ) {
+		$post = get_post( (int) $page_id );
+		if ( $post && 'page' === $post->post_type ) {
+			wp_delete_post( (int) $page_id, true );
+		}
+	}
+}
+
+foreach ( $option_names as $option_name ) {
+	delete_option( $option_name );
+}
+
+// 給与明細PDF・勤怠CSV・ZIP等の一時ファイル置き場（uploads/payroll/）を丸ごと削除
+$upload_dir  = wp_upload_dir();
+$payroll_dir = trailingslashit( $upload_dir['basedir'] ) . 'payroll';
+if ( is_dir( $payroll_dir ) ) {
+	$iterator = new RecursiveIteratorIterator(
+		new RecursiveDirectoryIterator( $payroll_dir, FilesystemIterator::SKIP_DOTS ),
+		RecursiveIteratorIterator::CHILD_FIRST
+	);
+	foreach ( $iterator as $item ) {
+		// phpcs:ignore WordPress.WP.AlternativeFunctions
+		$item->isDir() && ! $item->isLink() ? @rmdir( $item->getPathname() ) : @unlink( $item->getPathname() );
+	}
+	// phpcs:ignore WordPress.WP.AlternativeFunctions
+	@rmdir( $payroll_dir );
+}
+
 remove_role( 'payroll_manager' );
+
+// 有効化時に管理者ロールへ付与した capability も外す
+$admin_role = get_role( 'administrator' );
+if ( $admin_role ) {
+	$admin_role->remove_cap( 'manage_payroll' );
+}

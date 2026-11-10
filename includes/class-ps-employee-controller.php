@@ -153,7 +153,9 @@ class PS_Employee_Controller {
 		$employee_id = isset( $_POST['id'] ) ? absint( $_POST['id'] ) : 0;
 		check_admin_referer( 'ps_set_employee_password_' . $employee_id );
 
-		$new_password = isset( $_POST['new_password'] ) ? sanitize_text_field( wp_unslash( $_POST['new_password'] ) ) : '';
+		// パスワードはsanitize_text_fieldしない（記号や連続スペースが削られ、伝えた値でログインできなくなるため）。
+		// ログイン側（PS_Frontend_Employee_Auth）も未加工の値で照合している。
+		$new_password = isset( $_POST['new_password'] ) ? (string) wp_unslash( $_POST['new_password'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 
 		$employee = PS_Employee::find( $employee_id );
 		if ( ! $employee || '' === $new_password ) {

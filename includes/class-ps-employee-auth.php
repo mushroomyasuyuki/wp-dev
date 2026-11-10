@@ -21,6 +21,16 @@ class PS_Employee_Auth {
 	const COOKIE_NAME = 'ps_employee_auth';
 	const SESSION_TTL = 7 * DAY_IN_SECONDS;
 
+	/**
+	 * ログイン試行回数の制限（総当たり攻撃対策）。
+	 * 失敗回数は「社員コード単位」と「接続元IP単位」で数え、どちらかが上限に達すると
+	 * 最後の失敗から LOCKOUT_WINDOW の間はパスワードが正しくてもログインさせない。
+	 * IP単位の上限は、社内の全従業員が同じIP（NAT）から接続するケースを考慮して高めにしている。
+	 */
+	const MAX_FAILURES_PER_CODE = 5;
+	const MAX_FAILURES_PER_IP   = 30;
+	const LOCKOUT_WINDOW        = 15 * MINUTE_IN_SECONDS;
+
 	private static function sessions_table(): string {
 		global $wpdb;
 		return $wpdb->prefix . 'ps_employee_sessions';
@@ -44,6 +54,17 @@ class PS_Employee_Auth {
 			return new WP_Error( 'invalid_credentials', __( '社員コードとパスワードを入力してください。', 'payroll-system' ) );
 		}
 
+		// 社員コードの存在有無にかかわらず同じ判定をする（存在するコードの推測に使われないように）
+		$code_key = 'ps_emp_login_fail_c_' . md5( strtolower( $employee_code ) );
+		$ip_key   = 'ps_emp_login_fail_ip_' . md5( self::client_ip() );
+		if ( (int) get_transient( $code_key ) >= self::MAX_FAILURES_PER_CODE
+			|| (int) get_transient( $ip_key ) >= self::MAX_FAILURES_PER_IP ) {
+			return new WP_Error(
+				'too_many_attempts',
+				__( 'ログインの失敗が続いたため、一時的にログインを制限しています。15分ほど時間をおいてから、もう一度お試しください。', 'payroll-system' )
+			);
+		}
+
 		$table = self::employees_table();
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
 		$employee = $wpdb->get_row( $wpdb->prepare(
@@ -54,8 +75,13 @@ class PS_Employee_Auth {
 		// 社員コードが存在しない場合／パスワード未発行の場合も、同じ汎用エラーにする
 		// （社員コードの存在有無を外部から推測されないようにするため）。
 		if ( ! $employee || empty( $employee->password_hash ) || ! wp_check_password( $password, $employee->password_hash ) ) {
+			// 失敗のたびに有効期限を延ばす（最後の失敗から LOCKOUT_WINDOW の間カウントを保持）
+			set_transient( $code_key, (int) get_transient( $code_key ) + 1, self::LOCKOUT_WINDOW );
+			set_transient( $ip_key, (int) get_transient( $ip_key ) + 1, self::LOCKOUT_WINDOW );
 			return new WP_Error( 'invalid_credentials', __( '社員コードまたはパスワードが正しくありません。', 'payroll-system' ) );
 		}
+
+		delete_transient( $code_key );
 
 		self::start_session( (int) $employee->id );
 
@@ -67,7 +93,12 @@ class PS_Employee_Auth {
 
 		$token      = bin2hex( random_bytes( 32 ) );
 		$token_hash = hash( 'sha256', $token );
+		// expires_at はUTCで保存し、照合時もUTC（gmdate）で比較する
 		$expires_at = gmdate( 'Y-m-d H:i:s', time() + self::SESSION_TTL );
+
+		// 期限切れセッションの掃除（ログインのたびに行えば溜まり続けることはない）
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+		$wpdb->query( $wpdb->prepare( 'DELETE FROM ' . self::sessions_table() . ' WHERE expires_at <= %s', gmdate( 'Y-m-d H:i:s' ) ) );
 
 		$wpdb->insert( self::sessions_table(), array(
 			'employee_id' => $employee_id,
@@ -118,7 +149,7 @@ class PS_Employee_Auth {
 		$session = $wpdb->get_row( $wpdb->prepare(
 			'SELECT * FROM ' . self::sessions_table() . ' WHERE token_hash = %s AND expires_at > %s',
 			$token_hash,
-			current_time( 'mysql' )
+			gmdate( 'Y-m-d H:i:s' ) // expires_at はUTCで保存しているため、UTCの現在時刻と比較する
 		) );
 		if ( ! $session ) {
 			return null;
@@ -186,6 +217,10 @@ class PS_Employee_Auth {
 			'password_updated_at'  => current_time( 'mysql' ),
 			'updated_at'           => current_time( 'mysql' ),
 		), array( 'id' => $employee_id ) );
+	}
+
+	private static function client_ip(): string {
+		return isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : 'unknown';
 	}
 
 	private static function revoke_all_sessions( int $employee_id ) {

@@ -95,7 +95,7 @@ class PS_Payroll_Slip {
 	}
 
 	/**
-	 * 明細を確定する（status: calculating/reviewing → confirmed）。
+	 * 明細を確定する（status: calculating/reviewing → confirmed）。confirmed/correctedは対象外。
 	 *
 	 * @return true|WP_Error
 	 */
@@ -104,7 +104,9 @@ class PS_Payroll_Slip {
 		if ( ! $slip ) {
 			return new WP_Error( 'not_found', __( '給与明細が見つかりません。', 'payroll-system' ) );
 		}
-		if ( 'confirmed' === $slip->status ) {
+		// 訂正済み（corrected）も確定済みとして扱う。ここで弾かないと再確定でstatusが
+		// confirmedに戻り、確定後に訂正された事実が明細一覧から見えなくなる。
+		if ( in_array( $slip->status, array( 'confirmed', 'corrected' ), true ) ) {
 			return new WP_Error( 'already_confirmed', __( 'すでに確定済みです。', 'payroll-system' ) );
 		}
 
