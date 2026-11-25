@@ -1,7 +1,7 @@
 name: meishi_app
 description: "A new Flutter project."
 publish_to: 'none'
-version: 0.1.5+3003
+version: 0.1.6+3004
 
 environment:
   sdk: ^3.14.0
@@ -12,6 +12,7 @@ dependencies:
   flutter_contacts: ^2.6.0
   flutter_image_compress: ^2.5.1
   google_mlkit_text_recognition: ^1.0.3
+  image: ^4.13.1
   image_picker: ^1.2.4
   in_app_purchase: ^3.3.1
   material_ui: ^1.11.1

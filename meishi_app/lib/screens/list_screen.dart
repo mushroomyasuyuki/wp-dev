@@ -10,7 +10,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../main.dart';
 import '../models.dart';
 import '../ocr.dart';
-import '../parser.dart';
 import '../plan.dart';
 import '../storage.dart';
 import 'confirm_screen.dart';
@@ -231,15 +230,17 @@ class _ListScreenState extends State<ListScreen> {
       } catch (e) {
         problem ??= '表示用画像の作成に失敗: $e';
       }
-      List<OcrLine> lines = [];
+      BizCard parsed = BizCard();
       try {
-        lines = await recognizeCard(picked.path); // 圧縮前の画像で認識する
-        if (lines.isEmpty)
-          problem ??= '文字が見つかりませんでした（明るい場所で、名刺だけが大きく写るように撮ってください）';
+        // 圧縮前の画像から、整えた画像も含めて読み取る
+        parsed = await recognizeBestCard(picked.path, onStage: (m) {
+          if (mounted) setState(() => _busy = m);
+        });
+        if (parsed.rawText.isEmpty) problem ??= '文字が見つかりませんでした（明るい場所で、名刺だけが大きく写るように撮ってください）';
       } catch (e) {
         problem ??= '文字認識に失敗: $e';
       }
-      card = parseCard(lines)
+      card = parsed
         ..imageUri = saved.uri
         ..imagePending = saved.pending
         ..thumbPath = thumbPath;
