@@ -6,7 +6,14 @@ void main() {
   test('画像を整えて、文字の範囲を切り出せる', () {
     final im = img.Image(width: 1600, height: 1000);
     img.fill(im, color: img.ColorRgb8(150, 140, 140));
-    img.fillRect(im, x1: 400, y1: 300, x2: 900, y2: 360, color: img.ColorRgb8(60, 60, 60));
+    img.fillRect(
+      im,
+      x1: 400,
+      y1: 300,
+      x2: 900,
+      y2: 360,
+      color: img.ColorRgb8(60, 60, 60),
+    );
     final jpg = img.encodeJpg(im, quality: 90);
     final enhanced = enhanceForOcr(jpg);
     expect(enhanced, isNotNull);

@@ -72,7 +72,7 @@ class _DetailScreenState extends State<DetailScreen> {
     final c = _c!;
     // 端末の連絡先アプリの登録画面を開く（作成されたら登録済みの印を付ける）
     final id = await FlutterContacts.native.showCreator(
-      contact: bizToContact(c),
+      contact: bizToContact(c, forIntent: true),
     );
     if (id != null) {
       c.contactRegistered = true;

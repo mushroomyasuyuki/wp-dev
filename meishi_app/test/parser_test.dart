@@ -30,7 +30,10 @@ void main() {
   });
 
   test('判定できない行はメモに残る', () {
-    final c = parseCard(const [OcrLine('Creating the future', 20), OcrLine('佐藤', 60)]);
+    final c = parseCard(const [
+      OcrLine('Creating the future', 20),
+      OcrLine('佐藤', 60),
+    ]);
     expect(c.name, '佐藤');
     expect(c.memo, 'Creating the future');
   });
@@ -58,7 +61,20 @@ void main() {
   });
 
   test('@が読めなかったメールもメール欄に入る', () {
-    final c = parseCard(const [OcrLine('E-mail wakapatakuf.biglobe.ne.jp', 18, 230)]);
+    final c = parseCard(const [
+      OcrLine('E-mail wakapatakuf.biglobe.ne.jp', 18, 230),
+    ]);
     expect(c.email, 'wakapatakuf.biglobe.ne.jp');
+  });
+
+  test('読み取りの誤り（T/点抜け/ロゴ）を直す', () {
+    final c = parseCard(const [
+      OcrLine('の若崎特許商標事務所', 30, 10),
+      OcrLine('T329-0434 栃木県下野市祇園五丁目12番地11', 18, 170),
+      OcrLine('E-mail wakapat@kuf.biglobe.nejp', 18, 230),
+    ]);
+    expect(c.company, '若崎特許商標事務所');
+    expect(c.address, startsWith('〒329-0434'));
+    expect(c.email, 'wakapat@kuf.biglobe.ne.jp');
   });
 }

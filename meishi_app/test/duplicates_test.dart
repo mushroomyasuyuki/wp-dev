@@ -2,8 +2,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:meishi_app/duplicates.dart';
 import 'package:meishi_app/models.dart';
 
-BizCard c(int id, {String name = '', String company = '', String phone = '', String email = '', int day = 1}) =>
-    BizCard(id: id, name: name, company: company, phone: phone, email: email, createdAt: DateTime(2026, 11, day));
+BizCard c(
+  int id, {
+  String name = '',
+  String company = '',
+  String phone = '',
+  String email = '',
+  int day = 1,
+}) => BizCard(
+  id: id,
+  name: name,
+  company: company,
+  phone: phone,
+  email: email,
+  createdAt: DateTime(2026, 11, day),
+);
 
 void main() {
   test('メール・電話・氏名+会社名が同じなら重複、同姓同名だけでは重複にしない', () {
@@ -18,11 +31,14 @@ void main() {
     ];
     final g = findDuplicates(all);
     expect(g.length, 3);
-    expect(g.map((x) => x.cards.map((e) => e.id).toList()).toList(), containsAll([
-      [1, 2],
-      [3, 4],
-      [5, 6]
-    ]));
+    expect(
+      g.map((x) => x.cards.map((e) => e.id).toList()).toList(),
+      containsAll([
+        [1, 2],
+        [3, 4],
+        [5, 6],
+      ]),
+    );
     expect(g.expand((x) => x.cards).any((e) => e.id == 7), isFalse);
   });
 

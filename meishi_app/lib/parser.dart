@@ -168,6 +168,20 @@ BizCard parseCard(List<OcrLine> lines) {
     rest.add(OcrLine(t, l.height, l.top));
   }
   card.address = addr.join(' ');
+  // 読み取りの誤りを直す: 郵便マーク「〒」が「T」「丁」と読まれる、メールの「.jp」などの点が抜ける、
+  // 会社名の先頭にロゴが「の」と読まれて付く
+  card.address = card.address.replaceAllMapped(
+    RegExp(r'(?:^|(?<=\s))[TＴ丁]\s*(\d{3}-\d{4})'),
+    (m) => '〒${m[1]}',
+  );
+  card.email = card.email.replaceAllMapped(
+    RegExp(r'\.(ne|co|or|ac|go|ed|ad|gr)(jp)$', caseSensitive: false),
+    (m) => '.${m[1]}.${m[2]}',
+  );
+  card.company = card.company.replaceFirstMapped(
+    RegExp(r'^[のノ©®◎○●◇◆□■△▽☆★]\s*(?=[一-鿿]{3})'),
+    (_) => '',
+  );
 
   // 10. 氏名：残りのうち2〜8文字で数字・記号を含まない、いちばん大きい行
   OcrLine? best;
