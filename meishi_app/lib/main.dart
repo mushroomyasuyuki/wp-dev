@@ -22,7 +22,7 @@ class MeishiApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-    title: '名刺',
+    title: '名刺まるっと',
     debugShowCheckedModeBanner: false,
     theme: ThemeData(
       colorSchemeSeed: const Color(0xFF1565C0),

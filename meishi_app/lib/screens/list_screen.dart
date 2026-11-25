@@ -342,7 +342,7 @@ class _ListScreenState extends State<ListScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: const Text('名刺'),
+      title: const Text('名刺まるっと'),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(60),
         child: Padding(

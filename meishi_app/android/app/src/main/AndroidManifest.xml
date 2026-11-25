@@ -4,7 +4,7 @@
     <uses-permission android:name="android.permission.WRITE_CONTACTS"/>
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <application
-        android:label="名刺"
+        android:label="名刺まるっと"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
