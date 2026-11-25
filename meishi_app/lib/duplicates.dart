@@ -17,10 +17,10 @@ Set<String> duplicateKeys(BizCard c) {
 }
 
 String _reasonLabel(String key) => switch (key[0]) {
-      'e' => 'メールが同じ',
-      'p' => '電話番号が同じ',
-      _ => '氏名と会社名が同じ',
-    };
+  'e' => 'メールが同じ',
+  'p' => '電話番号が同じ',
+  _ => '氏名と会社名が同じ',
+};
 
 class DupGroup {
   final List<BizCard> cards; // 登録が古い順
@@ -59,8 +59,12 @@ List<DupGroup> findDuplicates(List<BizCard> all) {
         count[k] = (count[k] ?? 0) + 1;
       }
     }
-    final why = {for (final e in count.entries) if (e.value >= 2) _reasonLabel(e.key)};
-    final cards = [for (final i in members) all[i]]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    final why = {
+      for (final e in count.entries)
+        if (e.value >= 2) _reasonLabel(e.key),
+    };
+    final cards = [for (final i in members) all[i]]
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
     out.add(DupGroup(cards, why));
     reasons[members.first] = why;
   }

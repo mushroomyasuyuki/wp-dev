@@ -1,10 +1,12 @@
 import 'dart:io';
 import 'dart:isolate';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
+
 import 'models.dart';
 import 'parser.dart';
 
@@ -65,17 +67,36 @@ Uint8List? cropForOcr(Uint8List jpg, Rect box) {
   final w = (box.r + mx - x).clamp(1, im.width - x).toInt();
   final h = (box.b + my - y).clamp(1, im.height - y).toInt();
   if (w < 200 || h < 100) return null;
-  return Uint8List.fromList(img.encodeJpg(img.copyCrop(im, x: x, y: y, width: w, height: h), quality: 92));
+  return Uint8List.fromList(
+    img.encodeJpg(
+      img.copyCrop(im, x: x, y: y, width: w, height: h),
+      quality: 92,
+    ),
+  );
 }
 
 int _score(BizCard c) {
-  final fields = [c.name, c.company, c.title, c.department, c.phone, c.mobile, c.fax, c.email, c.address, c.url];
+  final fields = [
+    c.name,
+    c.company,
+    c.title,
+    c.department,
+    c.phone,
+    c.mobile,
+    c.fax,
+    c.email,
+    c.address,
+    c.url,
+  ];
   return fields.where((f) => f.isNotEmpty).length * 1000 + c.rawText.length;
 }
 
 /// 元の画像・整えた画像・文字の範囲を切り出した画像の3通りで読み取り、
 /// いちばん項目が埋まった結果を採用する。空の項目は、ほかの結果で補う。
-Future<BizCard> recognizeBestCard(String imagePath, {void Function(String)? onStage}) async {
+Future<BizCard> recognizeBestCard(
+  String imagePath, {
+  void Function(String)? onStage,
+}) async {
   final cards = <BizCard>[];
   void add(_Ocr o) => cards.add(parseCard(o.lines));
 
@@ -86,7 +107,12 @@ Future<BizCard> recognizeBestCard(String imagePath, {void Function(String)? onSt
   final tmp = await getTemporaryDirectory();
   try {
     onStage?.call('画像を整えています…（2/3）');
-    final small = await FlutterImageCompress.compressWithFile(imagePath, minWidth: 2200, minHeight: 2200, quality: 92);
+    final small = await FlutterImageCompress.compressWithFile(
+      imagePath,
+      minWidth: 2200,
+      minHeight: 2200,
+      quality: 92,
+    );
     if (small != null) {
       final enhanced = await Isolate.run(() => enhanceForOcr(small));
       if (enhanced != null) {

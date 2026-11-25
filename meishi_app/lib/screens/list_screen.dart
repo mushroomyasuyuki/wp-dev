@@ -119,6 +119,53 @@ class _ListScreenState extends State<ListScreen> {
 
   String _md(DateTime d) => '${d.month}/${d.day}';
 
+  /// 文字つきの操作ボタン（マークだけだと分かりにくいため）
+  Widget _actionRow() {
+    Widget item(IconData icon, String label, VoidCallback onTap) => Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 24),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: const TextStyle(fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+      child: Row(
+        children: [
+          item(
+            Icons.photo_library_outlined,
+            '写真から読み込む',
+            () => _capture(ImageSource.gallery),
+          ),
+          item(
+            Icons.content_copy_outlined,
+            '重複を探す',
+            () => _go(const DuplicatesScreen()),
+          ),
+          item(
+            Icons.settings_outlined,
+            '設定',
+            () => _go(const SettingsScreen()),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _chips() {
     Widget chip(String key, String label) => Padding(
       padding: const EdgeInsets.only(right: 8),
@@ -179,7 +226,10 @@ class _ListScreenState extends State<ListScreen> {
     XFile? picked;
     if (source == ImageSource.camera) {
       // 名刺サイズの枠つきカメラ。使えない場合は、標準のカメラに切り替える
-      final r = await Navigator.push<Object?>(context, MaterialPageRoute(builder: (_) => const CameraScreen()));
+      final r = await Navigator.push<Object?>(
+        context,
+        MaterialPageRoute(builder: (_) => const CameraScreen()),
+      );
       if (r is XFile) {
         picked = r;
       } else if (r == false || !mounted) {
@@ -249,10 +299,14 @@ class _ListScreenState extends State<ListScreen> {
       BizCard parsed = BizCard();
       try {
         // 圧縮前の画像から、整えた画像も含めて読み取る
-        parsed = await recognizeBestCard(picked.path, onStage: (m) {
-          if (mounted) setState(() => _busy = m);
-        });
-        if (parsed.rawText.isEmpty) problem ??= '文字が見つかりませんでした（明るい場所で、名刺だけが大きく写るように撮ってください）';
+        parsed = await recognizeBestCard(
+          picked.path,
+          onStage: (m) {
+            if (mounted) setState(() => _busy = m);
+          },
+        );
+        if (parsed.rawText.isEmpty)
+          problem ??= '文字が見つかりませんでした（明るい場所で、名刺だけが大きく写るように撮ってください）';
       } catch (e) {
         problem ??= '文字認識に失敗: $e';
       }
@@ -289,23 +343,6 @@ class _ListScreenState extends State<ListScreen> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
       title: const Text('名刺'),
-      actions: [
-        IconButton(
-          tooltip: '写真から読み込む',
-          icon: const Icon(Icons.photo_library_outlined),
-          onPressed: () => _capture(ImageSource.gallery),
-        ),
-        IconButton(
-          tooltip: '重複を探す',
-          icon: const Icon(Icons.content_copy_outlined),
-          onPressed: () => _go(const DuplicatesScreen()),
-        ),
-        IconButton(
-          tooltip: '設定',
-          icon: const Icon(Icons.settings_outlined),
-          onPressed: () => _go(const SettingsScreen()),
-        ),
-      ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(60),
         child: Padding(
@@ -325,6 +362,7 @@ class _ListScreenState extends State<ListScreen> {
       children: [
         Column(
           children: [
+            _actionRow(),
             _chips(),
             Expanded(
               child: _cards.isEmpty

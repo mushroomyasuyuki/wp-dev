@@ -92,10 +92,18 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
           context: context,
           builder: (_) => AlertDialog(
             title: const Text('同じ名刺が登録済みです'),
-            content: Text('「${first.name.isEmpty ? '(氏名なし)' : first.name}」${first.company.isEmpty ? '' : '（${first.company}）'}と、メール・電話番号または氏名と会社名が同じです。それでも保存しますか？'),
+            content: Text(
+              '「${first.name.isEmpty ? '(氏名なし)' : first.name}」${first.company.isEmpty ? '' : '（${first.company}）'}と、メール・電話番号または氏名と会社名が同じです。それでも保存しますか？',
+            ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('保存しない')),
-              TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('それでも保存')),
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('保存しない'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('それでも保存'),
+              ),
             ],
           ),
         );

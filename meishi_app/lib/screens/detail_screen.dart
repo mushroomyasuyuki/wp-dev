@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../delete_dialog.dart';
 import '../main.dart';
 import '../models.dart';
 import 'confirm_screen.dart';
@@ -50,27 +51,10 @@ class _DetailScreenState extends State<DetailScreen> {
   }
 
   Future<void> _delete() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('この名刺を削除しますか？'),
-        content: const Text('外部に保存した画像ファイルは消えません。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('やめる'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('削除'),
-          ),
-        ],
-      ),
-    );
-    if (ok == true) {
-      await repo.delete(widget.id);
-      if (mounted) Navigator.pop(context);
-    }
+    final r = await confirmDelete(context, title: 'この名刺を削除しますか？');
+    if (r == null) return;
+    await repo.delete(widget.id, removeLocalImage: r.removeImage);
+    if (mounted) Navigator.pop(context);
   }
 
   /// 端末の連絡先アプリの登録画面を開く（連絡先の権限は不要）
@@ -140,16 +124,17 @@ class _DetailScreenState extends State<DetailScreen> {
       appBar: AppBar(
         title: Text(c.name.isEmpty ? '名刺' : c.name),
         actions: [
-          IconButton(
-            tooltip: '編集',
-            icon: const Icon(Icons.edit_outlined),
+          TextButton.icon(
             onPressed: _edit,
+            icon: const Icon(Icons.edit_outlined),
+            label: const Text('編集'),
           ),
-          IconButton(
-            tooltip: '削除',
-            icon: const Icon(Icons.delete_outline),
+          TextButton.icon(
             onPressed: _delete,
+            icon: const Icon(Icons.delete_outline),
+            label: const Text('削除'),
           ),
+          const SizedBox(width: 4),
         ],
       ),
       body: ListView(
@@ -161,7 +146,13 @@ class _DetailScreenState extends State<DetailScreen> {
                 child: Image.file(
                   File(c.thumbPath),
                   fit: BoxFit.contain,
-                  errorBuilder: (_, _, _) => const Padding(padding: EdgeInsets.all(12), child: Text('画像がありません（アプリ内の画像が削除されています）', style: TextStyle(color: Colors.grey))),
+                  errorBuilder: (_, _, _) => const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Text(
+                      '画像がありません（アプリ内の画像が削除されています）',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
                 ),
               ),
             ),

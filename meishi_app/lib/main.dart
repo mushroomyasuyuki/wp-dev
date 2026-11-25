@@ -13,7 +13,6 @@ Future<void> main() async {
   repo = await CardRepo.open();
   runApp(const MeishiApp());
   // 起動後に、未移動の画像の移動と契約状態の確認を行う
-  repo.cleanOrphanThumbs();
   ExternalStore.flushPending(repo);
   plan.init();
 }

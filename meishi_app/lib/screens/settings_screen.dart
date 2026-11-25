@@ -19,6 +19,8 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   String? _folder;
   String _version = '';
+  int _thumbCount = 0;
+  int _thumbBytes = 0;
   int _pending = 0;
 
   @override
@@ -31,12 +33,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final f = await ExternalStore.folderUri();
     final p = (await repo.pendingImages()).length;
     final info = await PackageInfo.fromPlatform();
+    final t = await repo.thumbsInfo();
     if (!mounted) return;
     setState(() {
       _folder = f;
       _pending = p;
+      _thumbCount = t.count;
+      _thumbBytes = t.bytes;
       _version = '${info.version} (${info.buildNumber})';
     });
+  }
+
+  Future<void> _deleteThumbs() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('アプリ内の画像をすべて削除しますか？'),
+        content: const Text(
+          '一覧や詳細に出る、アプリ内の画像を削除します。名刺の文字の情報と、SDカードなどに保存した画像は消えません。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('残す'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('削除する'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await repo.deleteAllThumbs();
+    _toast('アプリ内の画像を削除しました');
+    _refresh();
   }
 
   void _toast(String s) =>
@@ -147,6 +178,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onTap: _flush,
             ),
           const Divider(),
+          ListTile(
+            leading: const Icon(Icons.image_outlined),
+            title: const Text('アプリ内の画像'),
+            subtitle: Text(
+              '$_thumbCount枚・${(_thumbBytes / 1048576).toStringAsFixed(1)}MB\n削除しても、名刺の文字の情報は残ります',
+            ),
+            isThreeLine: true,
+            trailing: OutlinedButton(
+              onPressed: _thumbCount == 0 ? null : _deleteThumbs,
+              child: const Text('すべて削除'),
+            ),
+          ),
           ListTile(
             leading: const Icon(Icons.table_view_outlined),
             title: Text(plan.isPro ? 'CSVで書き出す' : 'CSVで書き出す（有料）'),

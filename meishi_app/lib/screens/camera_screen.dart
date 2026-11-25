@@ -10,7 +10,8 @@ class CameraScreen extends StatefulWidget {
   State<CameraScreen> createState() => _CameraScreenState();
 }
 
-class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver {
+class _CameraScreenState extends State<CameraScreen>
+    with WidgetsBindingObserver {
   CameraController? _ctrl;
   String? _error;
   bool _vertical = false; // 縦向きの名刺
@@ -31,8 +32,15 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     try {
       final cams = await availableCameras();
       if (cams.isEmpty) throw CameraException('none', 'カメラが見つかりません');
-      final back = cams.firstWhere((c) => c.lensDirection == CameraLensDirection.back, orElse: () => cams.first);
-      final c = CameraController(back, ResolutionPreset.veryHigh, enableAudio: false);
+      final back = cams.firstWhere(
+        (c) => c.lensDirection == CameraLensDirection.back,
+        orElse: () => cams.first,
+      );
+      final c = CameraController(
+        back,
+        ResolutionPreset.veryHigh,
+        enableAudio: false,
+      );
       await c.initialize();
       await c.lockCaptureOrientation(DeviceOrientation.portraitUp);
       if (!mounted) {
@@ -41,7 +49,12 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       }
       setState(() => _ctrl = c);
     } on CameraException catch (e) {
-      if (mounted) setState(() => _error = e.code == 'CameraAccessDenied' ? 'カメラの使用が許可されていません。' : 'カメラを開けませんでした（${e.code}）。');
+      if (mounted)
+        setState(
+          () => _error = e.code == 'CameraAccessDenied'
+              ? 'カメラの使用が許可されていません。'
+              : 'カメラを開けませんでした（${e.code}）。',
+        );
     } catch (e) {
       if (mounted) setState(() => _error = 'カメラを開けませんでした。');
     }
@@ -94,7 +107,10 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   Future<void> _focus(TapDownDetails d, Size size) async {
     final c = _ctrl;
     if (c == null) return;
-    final p = Offset(d.localPosition.dx / size.width, d.localPosition.dy / size.height);
+    final p = Offset(
+      d.localPosition.dx / size.width,
+      d.localPosition.dy / size.height,
+    );
     try {
       await c.setFocusPoint(p);
       await c.setExposurePoint(p);
@@ -109,46 +125,70 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       body: _error != null
           ? _errorView()
           : c == null
-              ? const Center(child: CircularProgressIndicator())
-              : LayoutBuilder(builder: (context, box) {
-                  final size = Size(box.maxWidth, box.maxHeight);
-                  final ps = c.value.previewSize!; // 横向きの値なので、縦長に入れ替える
-                  return Stack(fit: StackFit.expand, children: [
+          ? const Center(child: CircularProgressIndicator())
+          : LayoutBuilder(
+              builder: (context, box) {
+                final size = Size(box.maxWidth, box.maxHeight);
+                final ps = c.value.previewSize!; // 横向きの値なので、縦長に入れ替える
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
                     GestureDetector(
                       onTapDown: (d) => _focus(d, size),
                       child: ClipRect(
                         child: FittedBox(
                           fit: BoxFit.cover,
-                          child: SizedBox(width: ps.height, height: ps.width, child: CameraPreview(c)),
+                          child: SizedBox(
+                            width: ps.height,
+                            height: ps.width,
+                            child: CameraPreview(c),
+                          ),
                         ),
                       ),
                     ),
-                    IgnorePointer(child: CustomPaint(painter: _GuidePainter(_guideRect(size)))),
+                    IgnorePointer(
+                      child: CustomPaint(
+                        painter: _GuidePainter(_guideRect(size)),
+                      ),
+                    ),
                     Positioned(
                       left: 0,
                       right: 0,
                       top: _guideRect(size).top - 44,
                       child: const IgnorePointer(
-                        child: Text('名刺を枠に合わせて撮影', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 16)),
+                        child: Text(
+                          '名刺を枠に合わせて撮影',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white, fontSize: 16),
+                        ),
                       ),
                     ),
                     SafeArea(
                       child: Align(
                         alignment: Alignment.topCenter,
-                        child: Row(children: [
-                          IconButton(icon: const Icon(Icons.close, color: Colors.white), tooltip: '閉じる', onPressed: () => Navigator.pop(context)),
-                          const Spacer(),
-                          IconButton(
-                            tooltip: _vertical ? '横向きの名刺' : '縦向きの名刺',
-                            icon: Icon(_vertical ? Icons.crop_landscape : Icons.crop_portrait, color: Colors.white),
-                            onPressed: () => setState(() => _vertical = !_vertical),
-                          ),
-                          IconButton(
-                            tooltip: 'ライト',
-                            icon: Icon(_torch ? Icons.flash_on : Icons.flash_off, color: _torch ? Colors.amber : Colors.white),
-                            onPressed: _toggleTorch,
-                          ),
-                        ]),
+                        child: Row(
+                          children: [
+                            _topButton(
+                              Icons.close,
+                              '閉じる',
+                              () => Navigator.pop(context),
+                            ),
+                            const Spacer(),
+                            _topButton(
+                              _vertical
+                                  ? Icons.crop_landscape
+                                  : Icons.crop_portrait,
+                              _vertical ? '横向き名刺' : '縦向き名刺',
+                              () => setState(() => _vertical = !_vertical),
+                            ),
+                            _topButton(
+                              _torch ? Icons.flash_on : Icons.flash_off,
+                              _torch ? 'ライト入' : 'ライト切',
+                              _toggleTorch,
+                              color: _torch ? Colors.amber : Colors.white,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     SafeArea(
@@ -156,44 +196,106 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                         alignment: Alignment.bottomCenter,
                         child: Padding(
                           padding: const EdgeInsets.only(bottom: 28),
-                          child: GestureDetector(
-                            onTap: _shoot,
-                            child: Container(
-                              width: 76,
-                              height: 76,
-                              decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 4)),
-                              padding: const EdgeInsets.all(6),
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(shape: BoxShape.circle, color: _shooting ? Colors.grey : Colors.white),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              GestureDetector(
+                                onTap: _shoot,
+                                child: Container(
+                                  width: 76,
+                                  height: 76,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 4,
+                                    ),
+                                  ),
+                                  padding: const EdgeInsets.all(6),
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: _shooting
+                                          ? Colors.grey
+                                          : Colors.white,
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                '撮影',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
-                  ]);
-                }),
+                  ],
+                );
+              },
+            ),
     );
   }
+
+  Widget _topButton(
+    IconData icon,
+    String label,
+    VoidCallback onTap, {
+    Color color = Colors.white,
+  }) => InkWell(
+    onTap: onTap,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color),
+          Text(label, style: TextStyle(color: color, fontSize: 11)),
+        ],
+      ),
+    ),
+  );
 
   /// 画面の中央よりやや上に、名刺と同じ縦横比の枠を置く
   Rect _guideRect(Size s) {
     final w = _vertical ? s.width * 0.6 : s.width * 0.9;
     final h = _vertical ? w * _ratio : w / _ratio;
-    return Rect.fromCenter(center: Offset(s.width / 2, s.height * 0.43), width: w, height: h);
+    return Rect.fromCenter(
+      center: Offset(s.width / 2, s.height * 0.43),
+      width: w,
+      height: h,
+    );
   }
 
   Widget _errorView() => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(_error!, style: const TextStyle(color: Colors.white), textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            FilledButton(onPressed: () => Navigator.pop(context, null), child: const Text('標準のカメラで撮る')),
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('閉じる')),
-          ]),
-        ),
-      );
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            _error!,
+            style: const TextStyle(color: Colors.white),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, null),
+            child: const Text('標準のカメラで撮る'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('閉じる'),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _GuidePainter extends CustomPainter {
@@ -209,9 +311,19 @@ class _GuidePainter extends CustomPainter {
       ..addRect(Offset.zero & size)
       ..addRRect(rr);
     canvas.drawPath(dim, Paint()..color = Colors.black54);
-    canvas.drawRRect(rr, Paint()..color = Colors.white70..style = PaintingStyle.stroke..strokeWidth = 1.5);
+    canvas.drawRRect(
+      rr,
+      Paint()
+        ..color = Colors.white70
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
     // 四隅を強調
-    final p = Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 4..strokeCap = StrokeCap.round;
+    final p = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4
+      ..strokeCap = StrokeCap.round;
     const L = 26.0;
     for (final (cx, cy, dx, dy) in [
       (rect.left, rect.top, 1.0, 1.0),

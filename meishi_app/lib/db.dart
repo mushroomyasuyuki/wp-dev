@@ -75,13 +75,14 @@ class CardRepo {
     await _db.update('cards', c.toMap(), where: 'id=?', whereArgs: [c.id]);
   }
 
-  /// 名刺を削除する。アプリ内の表示用画像（と、外部に移せていない一時保存の画像）も一緒に消す。
+  /// 名刺を削除する。アプリ内の表示用画像は、removeLocalImage が true のときだけ消す。
   /// 外部ストレージに保存済みの画像ファイルは消さない。
-  Future<void> delete(int id) async {
+  Future<void> delete(int id, {bool removeLocalImage = false}) async {
     final c = await get(id);
     await _db.delete('cards', where: 'id=?', whereArgs: [id]);
     if (c == null) return;
-    await _removeFile(c.thumbPath);
+    if (removeLocalImage) await _removeFile(c.thumbPath);
+    // 外部に移せていない一時保存の画像は、名刺と一緒に消す（他に使い道がないため）
     if (c.imagePending) await _removeFile(c.imageUri);
   }
 
@@ -93,32 +94,35 @@ class CardRepo {
     } catch (_) {}
   }
 
-  /// どの名刺にも使われていない表示用画像を消す（過去の削除で残ったもの）。
-  Future<int> cleanOrphanThumbs() async {
-    final dir = Directory('${(await getApplicationSupportDirectory()).path}/thumbs');
-    if (!await dir.exists()) return 0;
-    final used = (await _db.query('cards', columns: ['thumb_path']))
-        .map((r) => r['thumb_path'] as String? ?? '')
-        .toSet();
-    var n = 0;
+  Directory? _thumbDirCache;
+  Future<Directory> _thumbDir() async => _thumbDirCache ??= Directory(
+    '${(await getApplicationSupportDirectory()).path}/thumbs',
+  );
+
+  /// アプリ内の画像の枚数と合計サイズ（バイト）。
+  Future<({int count, int bytes})> thumbsInfo() async {
+    final dir = await _thumbDir();
+    if (!await dir.exists()) return (count: 0, bytes: 0);
+    var n = 0, bytes = 0;
     await for (final e in dir.list()) {
-      if (e is File && !used.contains(e.path)) {
-        try {
-          await e.delete();
-          n++;
-        } catch (_) {}
+      if (e is File) {
+        n++;
+        bytes += await e.length();
       }
     }
-    return n;
+    return (count: n, bytes: bytes);
   }
 
-  Future<List<BizCard>> pendingImages() async => (await _db.query(
-    'cards',
-    where: 'image_pending=1',
-  )).map(BizCard.fromMap).toList();
+  /// アプリ内の画像をすべて削除する。名刺の文字の情報は消えない。
+  Future<void> deleteAllThumbs() async {
+    final dir = await _thumbDir();
+    if (await dir.exists()) await dir.delete(recursive: true);
+    await _db.update('cards', {'thumb_path': ''});
+  }
 
-  Future<List<BizCard>> all() async => (await _db.query(
-    'cards',
-    orderBy: 'created_at DESC',
-  )).map(BizCard.fromMap).toList();
+  Future<List<BizCard>> pendingImages() async =>
+      (await _db.query('cards', where: 'image_pending=1')).map(BizCard.fromMap).toList();
+
+  Future<List<BizCard>> all() async =>
+      (await _db.query('cards', orderBy: 'created_at DESC')).map(BizCard.fromMap).toList();
 }
