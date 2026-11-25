@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
@@ -61,29 +62,57 @@ class _ListScreenState extends State<ListScreen> {
         child: AlertDialog(content: Row(children: [CircularProgressIndicator(), SizedBox(width: 20), Text('読み取り中…')])),
       ),
     );
-    late final BizCard card;
+    BizCard? card;
+    String? problem;
     try {
       final name = '${_stamp(DateTime.now())}.jpg';
       final original = await File(picked.path).readAsBytes();
-      final big = await FlutterImageCompress.compressWithFile(picked.path, minWidth: 1600, minHeight: 1600, quality: 85) ?? original;
+      Uint8List big = original;
+      try {
+        big = await FlutterImageCompress.compressWithFile(picked.path, minWidth: 1600, minHeight: 1600, quality: 85) ?? original;
+      } catch (e) {
+        problem = '画像の圧縮に失敗: $e';
+      }
       final saved = await ExternalStore.save(big, name);
-      final dir = Directory('${(await getApplicationSupportDirectory()).path}/thumbs');
-      await dir.create(recursive: true);
-      final thumb = File('${dir.path}/$name');
-      await thumb.writeAsBytes(
-          await FlutterImageCompress.compressWithFile(picked.path, minWidth: 800, minHeight: 800, quality: 70) ?? big);
+      var thumbPath = '';
+      try {
+        final dir = Directory('${(await getApplicationSupportDirectory()).path}/thumbs');
+        await dir.create(recursive: true);
+        final thumb = File('${dir.path}/$name');
+        await thumb.writeAsBytes(
+            await FlutterImageCompress.compressWithFile(picked.path, minWidth: 800, minHeight: 800, quality: 70) ?? big);
+        thumbPath = thumb.path;
+      } catch (e) {
+        problem ??= '表示用画像の作成に失敗: $e';
+      }
       List<OcrLine> lines = [];
       try {
         lines = await recognizeCard(picked.path); // 圧縮前の画像で認識する
-      } catch (_) {}
+        if (lines.isEmpty) problem ??= '文字が見つかりませんでした（明るい場所で、名刺だけが大きく写るように撮ってください）';
+      } catch (e) {
+        problem ??= '文字認識に失敗: $e';
+      }
       card = parseCard(lines)
         ..imageUri = saved.uri
         ..imagePending = saved.pending
-        ..thumbPath = thumb.path;
+        ..thumbPath = thumbPath;
+    } catch (e) {
+      problem = '処理に失敗: $e';
     } finally {
       if (mounted) Navigator.pop(context);
     }
-    if (mounted) _go(ConfirmScreen(card: card));
+    if (!mounted) return;
+    if (problem != null) {
+      await showDialog<void>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('読み取りの結果'),
+          content: SingleChildScrollView(child: SelectableText(problem!)),
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+        ),
+      );
+    }
+    if (card != null && mounted) _go(ConfirmScreen(card: card));
   }
 
   @override
