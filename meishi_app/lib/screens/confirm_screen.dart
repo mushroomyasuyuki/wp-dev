@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:material_ui/material_ui.dart';
 
 import '../main.dart';
+import '../duplicates.dart';
 import '../models.dart';
 
 /// 読み取り結果の確認・修正。新規登録と編集の両方で使う。
@@ -83,6 +84,23 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
       ..url = v('url')
       ..memo = v('memo');
     if (_isNew) {
+      // 同じ名刺がすでに登録されていれば、保存する前に知らせる
+      final dups = duplicatesOf(c, await repo.all());
+      if (dups.isNotEmpty && mounted) {
+        final first = dups.first;
+        final go = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('同じ名刺が登録済みです'),
+            content: Text('「${first.name.isEmpty ? '(氏名なし)' : first.name}」${first.company.isEmpty ? '' : '（${first.company}）'}と、メール・電話番号または氏名と会社名が同じです。それでも保存しますか？'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('保存しない')),
+              TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('それでも保存')),
+            ],
+          ),
+        );
+        if (go != true) return;
+      }
       await repo.insert(c);
     } else {
       await repo.update(c);

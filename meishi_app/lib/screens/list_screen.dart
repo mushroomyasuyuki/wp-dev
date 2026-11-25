@@ -14,6 +14,7 @@ import '../plan.dart';
 import '../storage.dart';
 import 'confirm_screen.dart';
 import 'detail_screen.dart';
+import 'duplicates_screen.dart';
 import 'plan_screen.dart';
 import 'settings_screen.dart';
 
@@ -278,6 +279,11 @@ class _ListScreenState extends State<ListScreen> {
           tooltip: '写真から読み込む',
           icon: const Icon(Icons.photo_library_outlined),
           onPressed: () => _capture(ImageSource.gallery),
+        ),
+        IconButton(
+          tooltip: '重複を探す',
+          icon: const Icon(Icons.content_copy_outlined),
+          onPressed: () => _go(const DuplicatesScreen()),
         ),
         IconButton(
           tooltip: '設定',
