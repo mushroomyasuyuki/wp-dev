@@ -8,6 +8,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../main.dart';
 import '../plan.dart';
 import '../storage.dart';
+import 'contacts_register_screen.dart';
 import 'plan_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -188,6 +189,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: OutlinedButton(
               onPressed: _thumbCount == 0 ? null : _deleteThumbs,
               child: const Text('すべて削除'),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.contacts_outlined),
+            title: Text(plan.isPro ? '電話帳に登録' : '電話帳に登録（有料）'),
+            subtitle: const Text('全件まとめて、または選んで登録します'),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ContactsRegisterScreen()),
             ),
           ),
           ListTile(

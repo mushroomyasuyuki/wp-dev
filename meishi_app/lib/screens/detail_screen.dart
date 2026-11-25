@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../contacts.dart';
 import '../delete_dialog.dart';
 import '../main.dart';
 import '../models.dart';
@@ -69,38 +70,15 @@ class _DetailScreenState extends State<DetailScreen> {
       return;
     }
     final c = _c!;
-    final parts = c.name.split(RegExp(r'[\s　]+'));
-    final contact = Contact(
-      name: Name(
-        last: parts.first,
-        first: parts.length > 1 ? parts.sublist(1).join(' ') : null,
-      ),
-      organizations: [
-        if (c.company.isNotEmpty ||
-            c.title.isNotEmpty ||
-            c.department.isNotEmpty)
-          Organization(
-            name: c.company,
-            jobTitle: c.title,
-            departmentName: c.department,
-          ),
-      ],
-      phones: [
-        if (c.phone.isNotEmpty)
-          Phone(number: c.phone, label: const Label(PhoneLabel.work)),
-        if (c.mobile.isNotEmpty)
-          Phone(number: c.mobile, label: const Label(PhoneLabel.mobile)),
-        if (c.fax.isNotEmpty)
-          Phone(number: c.fax, label: const Label(PhoneLabel.workFax)),
-      ],
-      emails: [
-        if (c.email.isNotEmpty)
-          Email(address: c.email, label: const Label(EmailLabel.work)),
-      ],
-      websites: [if (c.url.isNotEmpty) Website(url: c.url)],
-      addresses: [if (c.address.isNotEmpty) Address(formatted: c.address)],
+    // 端末の連絡先アプリの登録画面を開く（作成されたら登録済みの印を付ける）
+    final id = await FlutterContacts.native.showCreator(
+      contact: bizToContact(c),
     );
-    await FlutterContacts.native.showCreator(contact: contact);
+    if (id != null) {
+      c.contactRegistered = true;
+      await repo.update(c);
+      _load();
+    }
   }
 
   @override
@@ -182,7 +160,11 @@ class _DetailScreenState extends State<DetailScreen> {
             child: FilledButton.icon(
               onPressed: _addToContacts,
               icon: const Icon(Icons.person_add_alt),
-              label: Text(plan.isPro ? '連絡先に登録' : '連絡先に登録（有料）'),
+              label: Text(
+                c.contactRegistered
+                    ? '連絡先に登録済み（もう一度登録）'
+                    : (plan.isPro ? '連絡先に登録' : '連絡先に登録（有料）'),
+              ),
             ),
           ),
           const SizedBox(height: 32),

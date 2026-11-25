@@ -15,7 +15,7 @@ class CardRepo {
     final path = p.join(await getDatabasesPath(), 'meishi.db');
     final db = await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, _) async {
         await db.execute('''
         CREATE TABLE cards(
@@ -23,8 +23,16 @@ class CardRepo {
           name TEXT, name_kana TEXT, company TEXT, department TEXT, title TEXT,
           phone TEXT, mobile TEXT, fax TEXT, email TEXT, address TEXT, url TEXT,
           memo TEXT, raw_text TEXT, image_uri TEXT, thumb_path TEXT,
-          image_pending INTEGER, created_at INTEGER, updated_at INTEGER
+          image_pending INTEGER, contact_registered INTEGER DEFAULT 0,
+          created_at INTEGER, updated_at INTEGER
         )''');
+      },
+      onUpgrade: (db, oldVersion, _) async {
+        if (oldVersion < 2) {
+          await db.execute(
+            'ALTER TABLE cards ADD COLUMN contact_registered INTEGER DEFAULT 0',
+          );
+        }
       },
     );
     return CardRepo._(db);
@@ -120,9 +128,13 @@ class CardRepo {
     await _db.update('cards', {'thumb_path': ''});
   }
 
-  Future<List<BizCard>> pendingImages() async =>
-      (await _db.query('cards', where: 'image_pending=1')).map(BizCard.fromMap).toList();
+  Future<List<BizCard>> pendingImages() async => (await _db.query(
+    'cards',
+    where: 'image_pending=1',
+  )).map(BizCard.fromMap).toList();
 
-  Future<List<BizCard>> all() async =>
-      (await _db.query('cards', orderBy: 'created_at DESC')).map(BizCard.fromMap).toList();
+  Future<List<BizCard>> all() async => (await _db.query(
+    'cards',
+    orderBy: 'created_at DESC',
+  )).map(BizCard.fromMap).toList();
 }

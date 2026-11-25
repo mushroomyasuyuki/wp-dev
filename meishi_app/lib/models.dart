@@ -6,6 +6,7 @@ class BizCard {
   String imageUri; // 外部ストレージ上の画像の場所
   String thumbPath; // 表示用の小さな画像（アプリ内）
   bool imagePending; // 外部保存がまだ済んでいない
+  bool contactRegistered; // 電話帳に登録済み
   DateTime createdAt, updatedAt;
 
   BizCard({
@@ -26,6 +27,7 @@ class BizCard {
     this.imageUri = '',
     this.thumbPath = '',
     this.imagePending = false,
+    this.contactRegistered = false,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) : createdAt = createdAt ?? DateTime.now(),
@@ -49,6 +51,7 @@ class BizCard {
     'image_uri': imageUri,
     'thumb_path': thumbPath,
     'image_pending': imagePending ? 1 : 0,
+    'contact_registered': contactRegistered ? 1 : 0,
     'created_at': createdAt.millisecondsSinceEpoch,
     'updated_at': updatedAt.millisecondsSinceEpoch,
   };
@@ -71,6 +74,7 @@ class BizCard {
     imageUri: m['image_uri'] as String? ?? '',
     thumbPath: m['thumb_path'] as String? ?? '',
     imagePending: (m['image_pending'] as int? ?? 0) == 1,
+    contactRegistered: (m['contact_registered'] as int? ?? 0) == 1,
     createdAt: DateTime.fromMillisecondsSinceEpoch(m['created_at'] as int),
     updatedAt: DateTime.fromMillisecondsSinceEpoch(m['updated_at'] as int),
   );
