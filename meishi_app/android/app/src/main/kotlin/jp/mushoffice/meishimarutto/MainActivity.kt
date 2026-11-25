@@ -1,4 +1,4 @@
-package jp.meishi.meishi_app
+package jp.mushoffice.meishimarutto
 
 import android.content.Intent
 import android.net.Uri

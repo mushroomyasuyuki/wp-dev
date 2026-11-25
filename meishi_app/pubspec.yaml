@@ -1,7 +1,7 @@
 name: meishi_app
 description: "A new Flutter project."
 publish_to: 'none'
-version: 0.1.15+3017
+version: 0.1.16+3018
 
 environment:
   sdk: ^3.14.0
