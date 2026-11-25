@@ -2,10 +2,14 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../csv_import.dart';
+import '../duplicates.dart';
 import '../main.dart';
+import '../models.dart';
 import '../plan.dart';
 import '../storage.dart';
 import 'contacts_register_screen.dart';
@@ -86,6 +90,104 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   String _csvCell(String s) => '"${s.replaceAll('"', '""')}"';
+
+  /// CSVから名刺を一括で取り込む。
+  Future<void> _importCsv() async {
+    // 無料プランは30枚まで。取り込みでも超えないようにする
+    var room = 1 << 30;
+    if (!plan.isPro) {
+      room = freeLimit - await repo.count();
+      if (room <= 0) {
+        if (!mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                const PlanScreen(reason: '無料版で登録できるのは$freeLimit枚までです。'),
+          ),
+        );
+        return;
+      }
+    }
+    final picked = await FilePicker.pickFiles(type: FileType.any);
+    if (picked.isEmpty) return;
+    List<BizCard> cards;
+    try {
+      final text = await decodeCsvBytes(await picked.first.readAsBytes());
+      cards = cardsFromRows(parseCsv(text)).cards;
+    } catch (e) {
+      _toast('ファイルを読めませんでした（CSVファイルを選んでください）');
+      return;
+    }
+    if (cards.isEmpty) {
+      _toast('取り込める名刺が見つかりませんでした。1行目に「氏名」「会社名」などの項目名があるCSVを選んでください');
+      return;
+    }
+    // 登録済み、またはファイル内で先に出てきた名刺と重複しているものを調べる
+    final seen = await repo.all();
+    final dupIdx = <int>{};
+    for (var i = 0; i < cards.length; i++) {
+      if (duplicatesOf(cards[i], seen).isNotEmpty) dupIdx.add(i);
+      seen.add(cards[i]);
+    }
+    if (!mounted) return;
+    var skipDup = true;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text('${cards.length}件の名刺が見つかりました'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '重複の可能性があるもの：${dupIdx.length}件\n（メール・電話番号、または氏名と会社名が、登録済みの名刺またはファイル内の先の名刺と同じ）',
+              ),
+              if (!plan.isPro && cards.length > room)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    '無料版は$freeLimit枚までのため、残り$room枚分だけ取り込みます。',
+                    style: const TextStyle(color: Colors.orange),
+                  ),
+                ),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                value: skipDup,
+                onChanged: (v) => setState(() => skipDup = v ?? true),
+                title: const Text('重複するものは取り込まない'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('やめる'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('取り込む'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return;
+    var added = 0, skipped = 0;
+    for (var i = 0; i < cards.length; i++) {
+      if (skipDup && dupIdx.contains(i)) {
+        skipped++;
+        continue;
+      }
+      if (added >= room) break;
+      await repo.insert(cards[i]);
+      added++;
+    }
+    _toast('$added件を取り込みました${skipped > 0 ? '（重複$skipped件は取り込まず）' : ''}');
+    _refresh();
+  }
 
   Future<void> _exportCsv() async {
     if (!plan.isPro) {
@@ -199,6 +301,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               context,
               MaterialPageRoute(builder: (_) => const ContactsRegisterScreen()),
             ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.upload_file_outlined),
+            title: const Text('CSVから取り込む'),
+            subtitle: const Text(
+              '書き出したCSVと同じ形式。1行目に「氏名」「会社名」などの項目名を入れます。Excelで作ったCSVも読めます',
+            ),
+            isThreeLine: true,
+            onTap: _importCsv,
           ),
           ListTile(
             leading: const Icon(Icons.table_view_outlined),
