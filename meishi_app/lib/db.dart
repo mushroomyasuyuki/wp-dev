@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
 import 'models.dart';
@@ -72,8 +75,42 @@ class CardRepo {
     await _db.update('cards', c.toMap(), where: 'id=?', whereArgs: [c.id]);
   }
 
-  Future<void> delete(int id) =>
-      _db.delete('cards', where: 'id=?', whereArgs: [id]);
+  /// 名刺を削除する。アプリ内の表示用画像（と、外部に移せていない一時保存の画像）も一緒に消す。
+  /// 外部ストレージに保存済みの画像ファイルは消さない。
+  Future<void> delete(int id) async {
+    final c = await get(id);
+    await _db.delete('cards', where: 'id=?', whereArgs: [id]);
+    if (c == null) return;
+    await _removeFile(c.thumbPath);
+    if (c.imagePending) await _removeFile(c.imageUri);
+  }
+
+  Future<void> _removeFile(String path) async {
+    if (path.isEmpty) return;
+    try {
+      final f = File(path);
+      if (await f.exists()) await f.delete();
+    } catch (_) {}
+  }
+
+  /// どの名刺にも使われていない表示用画像を消す（過去の削除で残ったもの）。
+  Future<int> cleanOrphanThumbs() async {
+    final dir = Directory('${(await getApplicationSupportDirectory()).path}/thumbs');
+    if (!await dir.exists()) return 0;
+    final used = (await _db.query('cards', columns: ['thumb_path']))
+        .map((r) => r['thumb_path'] as String? ?? '')
+        .toSet();
+    var n = 0;
+    await for (final e in dir.list()) {
+      if (e is File && !used.contains(e.path)) {
+        try {
+          await e.delete();
+          n++;
+        } catch (_) {}
+      }
+    }
+    return n;
+  }
 
   Future<List<BizCard>> pendingImages() async => (await _db.query(
     'cards',

@@ -161,7 +161,7 @@ class _DetailScreenState extends State<DetailScreen> {
                 child: Image.file(
                   File(c.thumbPath),
                   fit: BoxFit.contain,
-                  errorBuilder: (_, _, _) => const SizedBox(),
+                  errorBuilder: (_, _, _) => const Padding(padding: EdgeInsets.all(12), child: Text('画像がありません（アプリ内の画像が削除されています）', style: TextStyle(color: Colors.grey))),
                 ),
               ),
             ),
