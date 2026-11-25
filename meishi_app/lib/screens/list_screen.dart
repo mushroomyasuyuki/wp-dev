@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../main.dart';
 import '../models.dart';
 import '../ocr.dart';
@@ -24,6 +25,8 @@ class ListScreen extends StatefulWidget {
 class _ListScreenState extends State<ListScreen> {
   List<BizCard> _cards = [];
   String _q = '';
+  String? _busy; // 処理中の表示（nullなら非表示）
+  static const _kCapturing = 'capturing';
 
   @override
   void initState() {
@@ -32,15 +35,29 @@ class _ListScreenState extends State<ListScreen> {
     _recoverLost();
   }
 
+  Future<void> _setCapturing(bool v) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kCapturing, v);
+  }
+
   /// 撮影中にアプリが終了させられた場合、撮った写真をここで受け取って続きを行う。
   Future<void> _recoverLost() async {
     if (!Platform.isAndroid) return;
+    final prefs = await SharedPreferences.getInstance();
+    // 撮影中にアプリが終了していた場合は、起動した瞬間から「読み込み中」を出す
+    if (prefs.getBool(_kCapturing) ?? false) {
+      if (mounted) setState(() => _busy = '撮影した名刺を読み込み中…');
+    }
     try {
       final r = await ImagePicker().retrieveLostData();
-      if (r.isEmpty) return;
-      final f = r.file ?? (r.files?.isNotEmpty == true ? r.files!.first : null);
-      if (f != null && mounted) await _process(f);
+      final f = r.isEmpty ? null : (r.file ?? (r.files?.isNotEmpty == true ? r.files!.first : null));
+      if (f != null && mounted) {
+        await _process(f);
+        return;
+      }
     } catch (_) {}
+    await _setCapturing(false);
+    if (mounted) setState(() => _busy = null);
   }
 
   Future<void> _reload() async {
@@ -64,20 +81,23 @@ class _ListScreenState extends State<ListScreen> {
       if (mounted) _go(const PlanScreen(reason: '無料版で登録できるのは$freeLimit枚までです。'));
       return;
     }
-    final picked = await ImagePicker().pickImage(source: source);
-    if (picked == null || !mounted) return;
+    await _setCapturing(true);
+    final XFile? picked;
+    try {
+      picked = await ImagePicker().pickImage(source: source);
+    } catch (_) {
+      await _setCapturing(false);
+      rethrow;
+    }
+    if (picked == null || !mounted) {
+      await _setCapturing(false);
+      return;
+    }
     await _process(picked);
   }
 
   Future<void> _process(XFile picked) async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const PopScope(
-        canPop: false,
-        child: AlertDialog(content: Row(children: [CircularProgressIndicator(), SizedBox(width: 20), Text('読み取り中…')])),
-      ),
-    );
+    setState(() => _busy = '画像を保存中…');
     BizCard? card;
     String? problem;
     try {
@@ -90,6 +110,7 @@ class _ListScreenState extends State<ListScreen> {
         problem = '画像の圧縮に失敗: $e';
       }
       final saved = await ExternalStore.save(big, name);
+      if (mounted) setState(() => _busy = '文字を認識中…');
       var thumbPath = '';
       try {
         final dir = Directory('${(await getApplicationSupportDirectory()).path}/thumbs');
@@ -115,7 +136,8 @@ class _ListScreenState extends State<ListScreen> {
     } catch (e) {
       problem = '処理に失敗: $e';
     } finally {
-      if (mounted) Navigator.pop(context);
+      await _setCapturing(false);
+      if (mounted) setState(() => _busy = null);
     }
     if (!mounted) return;
     if (problem != null) {
@@ -162,7 +184,8 @@ class _ListScreenState extends State<ListScreen> {
             ),
           ),
         ),
-        body: _cards.isEmpty
+        body: Stack(children: [
+          _cards.isEmpty
             ? Center(child: Text(_q.isEmpty ? '右下のボタンで名刺を撮影しましょう' : '見つかりませんでした'))
             : ListView.separated(
                 itemCount: _cards.length,
@@ -177,6 +200,25 @@ class _ListScreenState extends State<ListScreen> {
                   );
                 },
               ),
+          if (_busy != null)
+            Positioned.fill(
+              child: ColoredBox(
+                color: Colors.black54,
+                child: Center(
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        const CircularProgressIndicator(),
+                        const SizedBox(height: 16),
+                        Text(_busy!, style: Theme.of(context).textTheme.titleMedium),
+                      ]),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ]),
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () => _capture(ImageSource.camera),
           icon: const Icon(Icons.photo_camera),
