@@ -8,7 +8,7 @@ Future<List<OcrLine>> recognizeCard(String imagePath) async {
     final result = await recognizer.processImage(InputImage.fromFilePath(imagePath));
     return [
       for (final b in result.blocks)
-        for (final l in b.lines) OcrLine(l.text, l.boundingBox.height),
+        for (final l in b.lines) OcrLine(l.text, l.boundingBox.height, l.boundingBox.top),
     ];
   } finally {
     await recognizer.close();

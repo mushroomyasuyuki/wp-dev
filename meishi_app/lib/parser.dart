@@ -4,7 +4,8 @@ import 'models.dart';
 class OcrLine {
   final String text;
   final double height;
-  const OcrLine(this.text, this.height);
+  final double top; // 画像の上からの位置（会社名の推定に使う）
+  const OcrLine(this.text, this.height, [this.top = 0]);
 }
 
 /// 読み取った行を、設計書の順番のルールで項目に振り分ける。
@@ -21,9 +22,11 @@ BizCard parseCard(List<OcrLine> lines) {
   final rePhone = RegExp(r'(?<!\d)0\d{1,4}-\d{1,4}-\d{3,4}(?!\d)|(?<!\d)0\d{9,10}(?!\d)');
   final reAddr = RegExp(r'〒|(?<!\d)\d{3}-\d{4}(?!\d)|北海道|東京都|京都府|大阪府|[^\s]{2,3}県');
   final reBuild = RegExp(r'ビル|タワー|階|\d+F|センター|マンション|\d丁目|号室');
-  final reCompany = RegExp(r'株式会社|有限会社|合同会社|一般社団法人|\(株\)|（株）|㈱|Inc\.?|Co\.|Ltd|Corp|LLC|GmbH', caseSensitive: false);
+  final reCompany = RegExp(
+      r'株式会社|有限会社|合同会社|合資会社|一般社団法人|一般財団法人|公益社団法人|公益財団法人|社会福祉法人|医療法人|学校法人|特定非営利活動法人|NPO法人|\(株\)|（株）|㈱|㈲|事務所|法律事務所|組合|協会|銀行|信用金庫|病院|医院|クリニック|商店|製作所|研究所|大学|Inc\.?|Co\.|Ltd|Corp|LLC|GmbH',
+      caseSensitive: false);
   final reDept = RegExp(r'(部|課|室|センター|事業部|グループ|チーム)$|Division|Dept', caseSensitive: false);
-  final reTitle = RegExp(r'代表取締役|取締役|社長|部長|次長|課長|係長|主任|マネージャー|リーダー|所長|店長|CEO|CTO|CFO|Manager|Director|President|Engineer', caseSensitive: false);
+  final reTitle = RegExp(r'弁護士|弁理士|税理士|司法書士|行政書士|社会保険労務士|公認会計士|土地家屋調査士|医師|歯科医師|教授|代表|所長|理事長|院長|取締役|社長|部長|次長|課長|係長|主任|マネージャー|リーダー|所長|店長|CEO|CTO|CFO|Manager|Director|President|Engineer', caseSensitive: false);
 
   String norm(String s) => s
       .replaceAll(RegExp(r'[‐‑‒–—―−ーｰ]'), '-')
@@ -58,6 +61,16 @@ BizCard parseCard(List<OcrLine> lines) {
       if (card.email.isEmpty) card.email = em[0]!;
       lastWasAddress = false;
       continue;
+    }
+    // メールの「@」が読み取れなかった場合でも、「E-mail」と書かれた行は、書かれた内容をそのまま入れる
+    final mailLabel = RegExp(r'e-?mail|ｅ-?ｍａｉｌ|メール', caseSensitive: false).firstMatch(t);
+    if (mailLabel != null) {
+      final after = t.substring(mailLabel.end).replaceAll(RegExp(r'[\s:]+'), '');
+      if (after.contains('.') && after.length >= 6) {
+        if (card.email.isEmpty) card.email = after;
+        lastWasAddress = false;
+        continue;
+      }
     }
     // 2. URL
     final um = reUrl.firstMatch(t);
@@ -96,30 +109,31 @@ BizCard parseCard(List<OcrLine> lines) {
       continue;
     }
     lastWasAddress = false;
+    final tc = t.replaceAll(RegExp(r'[\s　]+'), ''); // 「弁 理 士」のような字間の空白を無視して判定する
     // 7. 会社名
-    if (reCompany.hasMatch(t)) {
+    if (reCompany.hasMatch(tc)) {
       if (card.company.isEmpty) {
         card.company = t;
       } else {
-        rest.add(OcrLine(t, l.height));
+        rest.add(OcrLine(t, l.height, l.top));
       }
       continue;
     }
     // 9. 役職を先に判定（「部長」が部署判定に取られないように）
-    if (reTitle.hasMatch(t) && t.length <= 20) {
+    if (reTitle.hasMatch(tc) && tc.length <= 20) {
       if (card.title.isEmpty) {
-        card.title = t;
+        card.title = tc.length <= 6 ? tc : t;
         continue;
       }
     }
     // 8. 部署
-    if (reDept.hasMatch(t) && t.length <= 20) {
+    if (reDept.hasMatch(tc) && tc.length <= 20) {
       if (card.department.isEmpty) {
         card.department = t;
         continue;
       }
     }
-    rest.add(OcrLine(t, l.height));
+    rest.add(OcrLine(t, l.height, l.top));
   }
   card.address = addr.join(' ');
 
@@ -135,6 +149,18 @@ BizCard parseCard(List<OcrLine> lines) {
   if (best != null) {
     card.name = best.text;
     rest.remove(best);
+  }
+  // 会社名の記号が見つからなかったときは、残りの行のうち最も上にある3文字以上の行を会社名の候補にする
+  if (card.company.isEmpty) {
+    OcrLine? top;
+    for (final l in rest) {
+      final c = l.text.replaceAll(RegExp(r'\s'), '');
+      if (c.length >= 3 && RegExp(r'[぀-ヿ一-鿿]').hasMatch(c) && !RegExp(r'[0-9@]').hasMatch(c) && (top == null || l.top < top.top)) top = l;
+    }
+    if (top != null) {
+      card.company = top.text;
+      rest.remove(top);
+    }
   }
   // 判定できなかった行はメモ欄へ（情報が消えない）
   card.memo = rest.map((l) => l.text).join('\n');

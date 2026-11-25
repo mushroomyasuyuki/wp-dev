@@ -34,4 +34,31 @@ void main() {
     expect(c.name, '佐藤');
     expect(c.memo, 'Creating the future');
   });
+
+  test('士業の名刺（実機で外れた例）', () {
+    final c = parseCard(const [
+      OcrLine('若崎特許商標事務所', 30, 10),
+      OcrLine('弁 理 士', 20, 60),
+      OcrLine('わか ざき', 10, 50),
+      OcrLine('若崎 義和', 60, 70),
+      OcrLine('〒329-0434', 18, 150),
+      OcrLine('栃木県下野市祇園五丁目12番地11', 18, 170),
+      OcrLine('TEL 0285-36-1366 FAX 0285-44-4054', 18, 190),
+      OcrLine('URL https://www.waka-ip.com', 18, 210),
+      OcrLine('E-mail wakapat@kuf.biglobe.ne.jp', 18, 230),
+    ]);
+    expect(c.company, '若崎特許商標事務所');
+    expect(c.title, '弁理士');
+    expect(c.name, '若崎 義和');
+    expect(c.email, 'wakapat@kuf.biglobe.ne.jp');
+    expect(c.url, 'https://www.waka-ip.com');
+    expect(c.address, contains('栃木県下野市'));
+    expect(c.phone, '0285-36-1366');
+    expect(c.fax, '0285-44-4054');
+  });
+
+  test('@が読めなかったメールもメール欄に入る', () {
+    final c = parseCard(const [OcrLine('E-mail wakapatakuf.biglobe.ne.jp', 18, 230)]);
+    expect(c.email, 'wakapatakuf.biglobe.ne.jp');
+  });
 }
