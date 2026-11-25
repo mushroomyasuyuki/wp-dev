@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+
 import 'db.dart';
 import 'plan.dart';
 import 'screens/list_screen.dart';
@@ -21,9 +22,12 @@ class MeishiApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-        title: '名刺',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(colorSchemeSeed: const Color(0xFF1565C0), useMaterial3: true),
-        home: const ListScreen(),
-      );
+    title: '名刺',
+    debugShowCheckedModeBanner: false,
+    theme: ThemeData(
+      colorSchemeSeed: const Color(0xFF1565C0),
+      useMaterial3: true,
+    ),
+    home: const ListScreen(),
+  );
 }

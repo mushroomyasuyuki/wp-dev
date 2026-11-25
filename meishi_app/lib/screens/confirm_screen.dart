@@ -1,5 +1,7 @@
 import 'dart:io';
+
 import 'package:material_ui/material_ui.dart';
+
 import '../main.dart';
 import '../models.dart';
 
@@ -51,7 +53,9 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
   @override
   void initState() {
     super.initState();
-    _c = {for (final f in _fields) f.$1: TextEditingController(text: _get(f.$1))};
+    _c = {
+      for (final f in _fields) f.$1: TextEditingController(text: _get(f.$1)),
+    };
   }
 
   @override
@@ -100,13 +104,20 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
           if (c.thumbPath.isNotEmpty)
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.file(File(c.thumbPath), height: 180, fit: BoxFit.contain, errorBuilder: (_, _, _) => const SizedBox()),
+              child: Image.file(
+                File(c.thumbPath),
+                height: 180,
+                fit: BoxFit.contain,
+                errorBuilder: (_, _, _) => const SizedBox(),
+              ),
             ),
           if (_isNew && c.imagePending)
             const Padding(
               padding: EdgeInsets.only(top: 8),
-              child: Text('保存先フォルダが使えないため、画像はアプリ内に一時保存しました。設定でフォルダを選ぶと自動で移動します。',
-                  style: TextStyle(color: Colors.orange)),
+              child: Text(
+                '保存先フォルダが使えないため、画像はアプリ内に一時保存しました。設定でフォルダを選ぶと自動で移動します。',
+                style: TextStyle(color: Colors.orange),
+              ),
             ),
           const SizedBox(height: 12),
           for (final f in _fields)
@@ -117,13 +128,21 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
                 keyboardType: f.$3,
                 minLines: f.$4 == 1 ? 1 : f.$4,
                 maxLines: f.$4 == 1 ? 1 : f.$4 + 2,
-                decoration: InputDecoration(labelText: f.$2, border: const OutlineInputBorder()),
+                decoration: InputDecoration(
+                  labelText: f.$2,
+                  border: const OutlineInputBorder(),
+                ),
               ),
             ),
           if (c.rawText.isNotEmpty)
             ExpansionTile(
               title: const Text('読み取った全文'),
-              children: [Padding(padding: const EdgeInsets.all(12), child: SelectableText(c.rawText))],
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: SelectableText(c.rawText),
+                ),
+              ],
             ),
           const SizedBox(height: 60),
         ],

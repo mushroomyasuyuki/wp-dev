@@ -1,7 +1,9 @@
 import 'dart:io';
+
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'db.dart';
 
 class SavedImage {
@@ -31,22 +33,34 @@ class ExternalStore {
   }
 
   static Future<Directory> _pendingDir() async {
-    final d = Directory('${(await getApplicationSupportDirectory()).path}/pending');
+    final d = Directory(
+      '${(await getApplicationSupportDirectory()).path}/pending',
+    );
     return d.create(recursive: true);
   }
 
   static Future<Directory> _iosDir() async {
-    final d = Directory('${(await getApplicationDocumentsDirectory()).path}/名刺');
+    final d = Directory(
+      '${(await getApplicationDocumentsDirectory()).path}/名刺',
+    );
     return d.create(recursive: true);
   }
 
-  static Future<SavedImage> save(Uint8List bytes, String name, {String mime = 'image/jpeg'}) async {
+  static Future<SavedImage> save(
+    Uint8List bytes,
+    String name, {
+    String mime = 'image/jpeg',
+  }) async {
     try {
       if (Platform.isAndroid) {
         final tree = await folderUri();
         if (tree != null) {
-          final uri = await _ch.invokeMethod<String>(
-              'saveFile', {'tree': tree, 'name': name, 'mime': mime, 'bytes': bytes});
+          final uri = await _ch.invokeMethod<String>('saveFile', {
+            'tree': tree,
+            'name': name,
+            'mime': mime,
+            'bytes': bytes,
+          });
           if (uri != null) return SavedImage(uri, false);
         }
       } else {
@@ -54,7 +68,9 @@ class ExternalStore {
         await f.writeAsBytes(bytes);
         return SavedImage(f.path, false);
       }
-    } catch (_) {/* 失敗したら一時保存へ */}
+    } catch (_) {
+      /* 失敗したら一時保存へ */
+    }
     final f = File('${(await _pendingDir()).path}/$name');
     await f.writeAsBytes(bytes);
     return SavedImage(f.path, true);

@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -26,10 +27,13 @@ class PlanService extends ChangeNotifier {
     if (storeAvailable) {
       _sub = iap.purchaseStream.listen(_onPurchases, onError: (_) {});
       final res = await iap.queryProductDetails(productIds);
-      products = res.productDetails.toList()..sort((a, b) => a.rawPrice.compareTo(b.rawPrice));
+      products = res.productDetails.toList()
+        ..sort((a, b) => a.rawPrice.compareTo(b.rawPrice));
       // 最後の確認から3日以上たっていたら、契約が続いているか再確認する
       final last = prefs.getInt(_kChecked) ?? 0;
-      if (!_forcePro && DateTime.now().millisecondsSinceEpoch - last > const Duration(days: 3).inMilliseconds) {
+      if (!_forcePro &&
+          DateTime.now().millisecondsSinceEpoch - last >
+              const Duration(days: 3).inMilliseconds) {
         unawaited(_recheck());
       }
     }
@@ -43,7 +47,10 @@ class PlanService extends ChangeNotifier {
     await InAppPurchase.instance.restorePurchases();
     await Future.delayed(const Duration(seconds: 6));
     if (!_sawActive) await _setPro(false);
-    (await SharedPreferences.getInstance()).setInt(_kChecked, DateTime.now().millisecondsSinceEpoch);
+    (await SharedPreferences.getInstance()).setInt(
+      _kChecked,
+      DateTime.now().millisecondsSinceEpoch,
+    );
   }
 
   Future<void> _setPro(bool v) async {
@@ -73,13 +80,15 @@ class PlanService extends ChangeNotifier {
           message = '購入を処理しています…';
           break;
       }
-      if (p.pendingCompletePurchase) await InAppPurchase.instance.completePurchase(p);
+      if (p.pendingCompletePurchase)
+        await InAppPurchase.instance.completePurchase(p);
       notifyListeners();
     }
   }
 
-  Future<void> buy(ProductDetails d) =>
-      InAppPurchase.instance.buyNonConsumable(purchaseParam: PurchaseParam(productDetails: d));
+  Future<void> buy(ProductDetails d) => InAppPurchase.instance.buyNonConsumable(
+    purchaseParam: PurchaseParam(productDetails: d),
+  );
 
   Future<void> restore() async {
     message = null;

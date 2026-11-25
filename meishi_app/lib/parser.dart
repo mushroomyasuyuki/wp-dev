@@ -10,30 +10,47 @@ class OcrLine {
 
 /// 読み取った行を、設計書の順番のルールで項目に振り分ける。
 BizCard parseCard(List<OcrLine> lines) {
-  final card = BizCard(
-    rawText: lines.map((l) => l.text).join('\n'),
-  );
+  final card = BizCard(rawText: lines.map((l) => l.text).join('\n'));
   final rest = <OcrLine>[];
   final addr = <String>[];
   var lastWasAddress = false;
 
-  final reEmail = RegExp(r'[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)+');
+  final reEmail = RegExp(
+    r'[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)+',
+  );
   final reUrl = RegExp(r'(?:https?://|www\.)[^\s]+', caseSensitive: false);
-  final rePhone = RegExp(r'(?<!\d)0\d{1,4}-\d{1,4}-\d{3,4}(?!\d)|(?<!\d)0\d{9,10}(?!\d)');
-  final reAddr = RegExp(r'〒|(?<!\d)\d{3}-\d{4}(?!\d)|北海道|東京都|京都府|大阪府|[^\s]{2,3}県');
+  final rePhone = RegExp(
+    r'(?<!\d)0\d{1,4}-\d{1,4}-\d{3,4}(?!\d)|(?<!\d)0\d{9,10}(?!\d)',
+  );
+  final reAddr = RegExp(
+    r'〒|(?<!\d)\d{3}-\d{4}(?!\d)|北海道|東京都|京都府|大阪府|[^\s]{2,3}県',
+  );
   final reBuild = RegExp(r'ビル|タワー|階|\d+F|センター|マンション|\d丁目|号室');
   final reCompany = RegExp(
-      r'株式会社|有限会社|合同会社|合資会社|一般社団法人|一般財団法人|公益社団法人|公益財団法人|社会福祉法人|医療法人|学校法人|特定非営利活動法人|NPO法人|\(株\)|（株）|㈱|㈲|事務所|法律事務所|組合|協会|銀行|信用金庫|病院|医院|クリニック|商店|製作所|研究所|大学|Inc\.?|Co\.|Ltd|Corp|LLC|GmbH',
-      caseSensitive: false);
-  final reDept = RegExp(r'(部|課|室|センター|事業部|グループ|チーム)$|Division|Dept', caseSensitive: false);
-  final reTitle = RegExp(r'弁護士|弁理士|税理士|司法書士|行政書士|社会保険労務士|公認会計士|土地家屋調査士|医師|歯科医師|教授|代表|所長|理事長|院長|取締役|社長|部長|次長|課長|係長|主任|マネージャー|リーダー|所長|店長|CEO|CTO|CFO|Manager|Director|President|Engineer', caseSensitive: false);
+    r'株式会社|有限会社|合同会社|合資会社|一般社団法人|一般財団法人|公益社団法人|公益財団法人|社会福祉法人|医療法人|学校法人|特定非営利活動法人|NPO法人|\(株\)|（株）|㈱|㈲|事務所|法律事務所|組合|協会|銀行|信用金庫|病院|医院|クリニック|商店|製作所|研究所|大学|Inc\.?|Co\.|Ltd|Corp|LLC|GmbH',
+    caseSensitive: false,
+  );
+  final reDept = RegExp(
+    r'(部|課|室|センター|事業部|グループ|チーム)$|Division|Dept',
+    caseSensitive: false,
+  );
+  final reTitle = RegExp(
+    r'弁護士|弁理士|税理士|司法書士|行政書士|社会保険労務士|公認会計士|土地家屋調査士|医師|歯科医師|教授|代表|所長|理事長|院長|取締役|社長|部長|次長|課長|係長|主任|マネージャー|リーダー|所長|店長|CEO|CTO|CFO|Manager|Director|President|Engineer',
+    caseSensitive: false,
+  );
 
   String norm(String s) => s
       .replaceAll(RegExp(r'[‐‑‒–—―−ーｰ]'), '-')
       .replaceAll('（', '(')
       .replaceAll('）', ')')
-      .replaceAllMapped(RegExp(r'[０-９]'), (m) => String.fromCharCode(m[0]!.codeUnitAt(0) - 0xFEE0))
-      .replaceAllMapped(RegExp(r'[Ａ-Ｚａ-ｚ]'), (m) => String.fromCharCode(m[0]!.codeUnitAt(0) - 0xFEE0))
+      .replaceAllMapped(
+        RegExp(r'[０-９]'),
+        (m) => String.fromCharCode(m[0]!.codeUnitAt(0) - 0xFEE0),
+      )
+      .replaceAllMapped(
+        RegExp(r'[Ａ-Ｚａ-ｚ]'),
+        (m) => String.fromCharCode(m[0]!.codeUnitAt(0) - 0xFEE0),
+      )
       .replaceAll('＠', '@')
       .replaceAll('：', ':');
 
@@ -63,9 +80,14 @@ BizCard parseCard(List<OcrLine> lines) {
       continue;
     }
     // メールの「@」が読み取れなかった場合でも、「E-mail」と書かれた行は、書かれた内容をそのまま入れる
-    final mailLabel = RegExp(r'e-?mail|ｅ-?ｍａｉｌ|メール', caseSensitive: false).firstMatch(t);
+    final mailLabel = RegExp(
+      r'e-?mail|ｅ-?ｍａｉｌ|メール',
+      caseSensitive: false,
+    ).firstMatch(t);
     if (mailLabel != null) {
-      final after = t.substring(mailLabel.end).replaceAll(RegExp(r'[\s:]+'), '');
+      final after = t
+          .substring(mailLabel.end)
+          .replaceAll(RegExp(r'[\s:]+'), '');
       if (after.contains('.') && after.length >= 6) {
         if (card.email.isEmpty) card.email = after;
         lastWasAddress = false;
@@ -84,12 +106,22 @@ BizCard parseCard(List<OcrLine> lines) {
     if (phones.isNotEmpty) {
       for (final m in phones) {
         final before = t.substring(0, m.start);
-        final near = before.length > 8 ? before.substring(before.length - 8) : before;
+        final near = before.length > 8
+            ? before.substring(before.length - 8)
+            : before;
         final number = m[0]!;
-        final isMobileNo = RegExp(r'^0[789]0').hasMatch(number.replaceAll('-', ''));
-        if (RegExp(r'fax|ファックス|ファクス|(^|[^A-Za-z])F\s*[:.]?\s*$', caseSensitive: false).hasMatch(near)) {
+        final isMobileNo = RegExp(r'^0[789]0')
+            .hasMatch(number.replaceAll('-', ''));
+        if (RegExp(
+          r'fax|ファックス|ファクス|(^|[^A-Za-z])F\s*[:.]?\s*$',
+          caseSensitive: false,
+        ).hasMatch(near)) {
           put('fax', number);
-        } else if (isMobileNo || RegExp(r'携帯|mobile|cell|M\s*[:.]?\s*$', caseSensitive: false).hasMatch(near)) {
+        } else if (isMobileNo ||
+            RegExp(
+              r'携帯|mobile|cell|M\s*[:.]?\s*$',
+              caseSensitive: false,
+            ).hasMatch(near)) {
           put('mobile', number);
         } else {
           put('phone', number);
@@ -141,7 +173,8 @@ BizCard parseCard(List<OcrLine> lines) {
   OcrLine? best;
   for (final l in rest) {
     final compact = l.text.replaceAll(RegExp(r'\s'), '');
-    final ok = compact.length >= 2 &&
+    final ok =
+        compact.length >= 2 &&
         compact.length <= 8 &&
         !RegExp(r'[0-9@:/.,()\-]').hasMatch(compact);
     if (ok && (best == null || l.height > best.height)) best = l;
@@ -155,7 +188,11 @@ BizCard parseCard(List<OcrLine> lines) {
     OcrLine? top;
     for (final l in rest) {
       final c = l.text.replaceAll(RegExp(r'\s'), '');
-      if (c.length >= 3 && RegExp(r'[぀-ヿ一-鿿]').hasMatch(c) && !RegExp(r'[0-9@]').hasMatch(c) && (top == null || l.top < top.top)) top = l;
+      if (c.length >= 3 &&
+          RegExp(r'[぀-ヿ一-鿿]').hasMatch(c) &&
+          !RegExp(r'[0-9@]').hasMatch(c) &&
+          (top == null || l.top < top.top))
+        top = l;
     }
     if (top != null) {
       card.company = top.text;
