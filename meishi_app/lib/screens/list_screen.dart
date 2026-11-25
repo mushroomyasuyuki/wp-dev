@@ -29,6 +29,18 @@ class _ListScreenState extends State<ListScreen> {
   void initState() {
     super.initState();
     _reload();
+    _recoverLost();
+  }
+
+  /// 撮影中にアプリが終了させられた場合、撮った写真をここで受け取って続きを行う。
+  Future<void> _recoverLost() async {
+    if (!Platform.isAndroid) return;
+    try {
+      final r = await ImagePicker().retrieveLostData();
+      if (r.isEmpty) return;
+      final f = r.file ?? (r.files?.isNotEmpty == true ? r.files!.first : null);
+      if (f != null && mounted) await _process(f);
+    } catch (_) {}
   }
 
   Future<void> _reload() async {
@@ -54,6 +66,10 @@ class _ListScreenState extends State<ListScreen> {
     }
     final picked = await ImagePicker().pickImage(source: source);
     if (picked == null || !mounted) return;
+    await _process(picked);
+  }
+
+  Future<void> _process(XFile picked) async {
     showDialog(
       context: context,
       barrierDismissible: false,

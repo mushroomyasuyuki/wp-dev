@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:material_ui/material_ui.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../main.dart';
 import '../plan.dart';
 import '../storage.dart';
@@ -15,6 +16,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   String? _folder;
+  String _version = '';
   int _pending = 0;
 
   @override
@@ -26,10 +28,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _refresh() async {
     final f = await ExternalStore.folderUri();
     final p = (await repo.pendingImages()).length;
+    final info = await PackageInfo.fromPlatform();
     if (!mounted) return;
     setState(() {
       _folder = f;
       _pending = p;
+      _version = '${info.version} (${info.buildNumber})';
     });
   }
 
@@ -114,6 +118,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Text('名刺のデータと画像は、この端末と選んだ保存先にだけ保存されます。文字の読み取りも端末内で行い、名刺の情報を外部へ送信しません。',
                     style: TextStyle(color: Colors.grey)),
               ),
+              ListTile(title: const Text('バージョン'), subtitle: Text(_version)),
             ],
           ),
         ),
