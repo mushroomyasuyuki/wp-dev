@@ -12,6 +12,7 @@ import '../models.dart';
 import '../ocr.dart';
 import '../plan.dart';
 import '../storage.dart';
+import 'camera_screen.dart';
 import 'confirm_screen.dart';
 import 'detail_screen.dart';
 import 'duplicates_screen.dart';
@@ -174,8 +175,22 @@ class _ListScreenState extends State<ListScreen> {
       if (mounted) _go(const PlanScreen(reason: '無料版で登録できるのは$freeLimit枚までです。'));
       return;
     }
+    if (!mounted) return;
+    XFile? picked;
+    if (source == ImageSource.camera) {
+      // 名刺サイズの枠つきカメラ。使えない場合は、標準のカメラに切り替える
+      final r = await Navigator.push<Object?>(context, MaterialPageRoute(builder: (_) => const CameraScreen()));
+      if (r is XFile) {
+        picked = r;
+      } else if (r == false || !mounted) {
+        return;
+      }
+    }
+    if (picked != null) {
+      await _process(picked);
+      return;
+    }
     await _setCapturing(true);
-    final XFile? picked;
     try {
       picked = await ImagePicker().pickImage(source: source);
     } catch (_) {
