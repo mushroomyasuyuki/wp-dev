@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../main.dart';
+import '../kana.dart';
 import '../models.dart';
 import '../ocr.dart';
 import '../plan.dart';
@@ -30,6 +31,9 @@ class _ListScreenState extends State<ListScreen> {
   String _q = '';
   String _period = 'all'; // all / today / week / month / custom
   DateTimeRange? _custom;
+  bool _byCompany = false; // 50音の対象：false=氏名、true=会社名
+  String? _row; // 50音の行（null=すべて）
+  bool _sort50 = false; // 50音順に並べる
   String? _busy; // 処理中の表示（nullなら非表示）
   static const _kCapturing = 'capturing';
 
@@ -97,7 +101,14 @@ class _ListScreenState extends State<ListScreen> {
 
   Future<void> _reload() async {
     final (from, to) = _range();
-    final r = await repo.search(_q, from: from, to: to);
+    var r = await repo.search(_q, from: from, to: to);
+    // 50音の行で絞り込み、行を選んでいるとき・50音順のときは読みの順に並べる
+    if (_row != null) {
+      r = r.where((c) => gojuonRow(c, company: _byCompany) == _row).toList();
+    }
+    if (_row != null || _sort50) {
+      r.sort((a, b) => compareByReading(a, b, company: _byCompany));
+    }
     if (mounted) setState(() => _cards = r);
   }
 
@@ -163,6 +174,89 @@ class _ListScreenState extends State<ListScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  /// 50音で探す：氏名・会社名のどちらの読みで探すかと、行（あ・か・さ…）を選ぶ。
+  Widget _gojuonBar() {
+    final labels = [
+      'すべて',
+      ...gojuonRows.map((e) => e.$1),
+      rowAlnum,
+      rowUnknown,
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
+          child: Row(
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(right: 8),
+                child: Text(
+                  '50音',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: const Text('氏名'),
+                  selected: !_byCompany,
+                  onSelected: (_) {
+                    _byCompany = false;
+                    _reload();
+                  },
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: const Text('会社名'),
+                  selected: _byCompany,
+                  onSelected: (_) {
+                    _byCompany = true;
+                    _reload();
+                  },
+                ),
+              ),
+              FilterChip(
+                label: const Text('50音順に並べる'),
+                selected: _sort50,
+                onSelected: (v) {
+                  _sort50 = v;
+                  _reload();
+                },
+              ),
+            ],
+          ),
+        ),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.fromLTRB(16, 0, 8, 4),
+          child: Row(
+            children: [
+              for (final l in labels)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ChoiceChip(
+                    label: Text(l),
+                    tooltip: l == rowUnknown
+                        ? '読みが分からない名刺（よみがなを入れると50音で探せます）'
+                        : null,
+                    selected: l == 'すべて' ? _row == null : _row == l,
+                    onSelected: (_) {
+                      _row = l == 'すべて' ? null : l;
+                      _reload();
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -364,6 +458,7 @@ class _ListScreenState extends State<ListScreen> {
           children: [
             _actionRow(),
             _chips(),
+            _gojuonBar(),
             Expanded(
               child: _cards.isEmpty
                   ? Center(

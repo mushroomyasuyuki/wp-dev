@@ -31,7 +31,7 @@ Future<_Ocr> _recognize(String path) async {
     for (final block in result.blocks) {
       for (final line in block.lines) {
         final bb = line.boundingBox;
-        lines.add(OcrLine(line.text, bb.height, bb.top));
+        lines.add(OcrLine(line.text, bb.height, bb.top, bb.left));
         if (bb.left < l) l = bb.left;
         if (bb.top < t) t = bb.top;
         if (bb.right > r) r = bb.right;

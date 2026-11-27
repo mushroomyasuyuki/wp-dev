@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
+import 'kana.dart';
 import 'models.dart';
 
 /// 名刺テーブル（cards）1つだけのデータベース。
@@ -15,12 +16,12 @@ class CardRepo {
     final path = p.join(await getDatabasesPath(), 'meishi.db');
     final db = await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: (db, _) async {
         await db.execute('''
         CREATE TABLE cards(
           id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT, name_kana TEXT, company TEXT, department TEXT, title TEXT,
+          name TEXT, name_kana TEXT, company TEXT, company_kana TEXT DEFAULT '', department TEXT, title TEXT,
           phone TEXT, mobile TEXT, fax TEXT, email TEXT, address TEXT, url TEXT,
           memo TEXT, raw_text TEXT, image_uri TEXT, thumb_path TEXT,
           image_pending INTEGER, contact_registered INTEGER DEFAULT 0,
@@ -31,6 +32,11 @@ class CardRepo {
         if (oldVersion < 2) {
           await db.execute(
             'ALTER TABLE cards ADD COLUMN contact_registered INTEGER DEFAULT 0',
+          );
+        }
+        if (oldVersion < 3) {
+          await db.execute(
+            "ALTER TABLE cards ADD COLUMN company_kana TEXT DEFAULT ''",
           );
         }
       },
@@ -49,10 +55,12 @@ class CardRepo {
     final where = <String>[];
     final args = <Object?>[];
     if (q.isNotEmpty) {
+      // ?2 はひらがなにそろえた検索語。「ヤマダ」で「やまだ」を、「やまだ」で「ヤマダ」を見つけられる
       where.add(
-        '(name LIKE ?1 OR name_kana LIKE ?1 OR company LIKE ?1 OR memo LIKE ?1 OR raw_text LIKE ?1)',
+        '(name LIKE ?1 OR name_kana LIKE ?1 OR name_kana LIKE ?2 OR company LIKE ?1 OR company_kana LIKE ?1 OR company_kana LIKE ?2 OR memo LIKE ?1 OR raw_text LIKE ?1)',
       );
       args.add('%$q%');
+      args.add('%${toHiragana(q)}%');
     }
     if (from != null) {
       where.add('created_at >= ?${args.length + 1}');

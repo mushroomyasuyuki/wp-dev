@@ -5,7 +5,8 @@ class OcrLine {
   final String text;
   final double height;
   final double top; // 画像の上からの位置（会社名の推定に使う）
-  const OcrLine(this.text, this.height, [this.top = 0]);
+  final double left; // 画像の左からの位置（ふりがなの並びに使う）
+  const OcrLine(this.text, this.height, [this.top = 0, this.left = 0]);
 }
 
 /// 読み取った行を、設計書の順番のルールで項目に振り分ける。
@@ -147,7 +148,7 @@ BizCard parseCard(List<OcrLine> lines) {
       if (card.company.isEmpty) {
         card.company = t;
       } else {
-        rest.add(OcrLine(t, l.height, l.top));
+        rest.add(OcrLine(t, l.height, l.top, l.left));
       }
       continue;
     }
@@ -165,7 +166,7 @@ BizCard parseCard(List<OcrLine> lines) {
         continue;
       }
     }
-    rest.add(OcrLine(t, l.height, l.top));
+    rest.add(OcrLine(t, l.height, l.top, l.left));
   }
   card.address = addr.join(' ');
   // 読み取りの誤りを直す: 郵便マーク「〒」が「T」「丁」と読まれる、メールの「.jp」などの点が抜ける、
@@ -196,6 +197,35 @@ BizCard parseCard(List<OcrLine> lines) {
   if (best != null) {
     card.name = best.text;
     rest.remove(best);
+  }
+  // 名刺に印刷されたふりがな（仮名だけで、氏名より小さい文字の行）を、よみがなにする。
+  // 「わか」「ざき」のように行が分かれていることがあるので、氏名の近くにあるものを左から順に合わせる。
+  if (best != null) {
+    final found = <OcrLine>[];
+    for (final l in rest) {
+      final c = l.text.replaceAll(RegExp(r'[\s　]+'), '');
+      final near =
+          l.top >= best.top - best.height * 1.8 &&
+          l.top <= best.top + best.height * 0.5;
+      if (c.length >= 2 &&
+          c.length <= 14 &&
+          RegExp(r'^[ぁ-ゖァ-ヶー]+$').hasMatch(c) &&
+          l.height < best.height &&
+          near) {
+        found.add(l);
+      }
+    }
+    if (found.isNotEmpty) {
+      found.sort((a, b) => a.left.compareTo(b.left));
+      card.nameKana = found
+          .map((l) => l.text.replaceAll(RegExp(r'[\s　]+'), ''))
+          .join()
+          .replaceAllMapped(
+            RegExp(r'[ァ-ヶ]'),
+            (m) => String.fromCharCode(m[0]!.codeUnitAt(0) - 0x60),
+          );
+      rest.removeWhere(found.contains);
+    }
   }
   // 会社名の記号が見つからなかったときは、残りの行のうち最も上にある3文字以上の行を会社名の候補にする
   if (card.company.isEmpty) {

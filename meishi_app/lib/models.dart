@@ -1,7 +1,7 @@
 /// 名刺1枚分のデータ。DBの1行に対応する。
 class BizCard {
   int? id;
-  String name, nameKana, company, department, title;
+  String name, nameKana, company, companyKana, department, title;
   String phone, mobile, fax, email, address, url, memo, rawText;
   String imageUri; // 外部ストレージ上の画像の場所
   String thumbPath; // 表示用の小さな画像（アプリ内）
@@ -14,6 +14,7 @@ class BizCard {
     this.name = '',
     this.nameKana = '',
     this.company = '',
+    this.companyKana = '',
     this.department = '',
     this.title = '',
     this.phone = '',
@@ -38,6 +39,7 @@ class BizCard {
     'name': name,
     'name_kana': nameKana,
     'company': company,
+    'company_kana': companyKana,
     'department': department,
     'title': title,
     'phone': phone,
@@ -61,6 +63,7 @@ class BizCard {
     name: m['name'] as String? ?? '',
     nameKana: m['name_kana'] as String? ?? '',
     company: m['company'] as String? ?? '',
+    companyKana: m['company_kana'] as String? ?? '',
     department: m['department'] as String? ?? '',
     title: m['title'] as String? ?? '',
     phone: m['phone'] as String? ?? '',

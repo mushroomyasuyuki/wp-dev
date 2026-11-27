@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:charset_converter/charset_converter.dart';
 
+import 'kana.dart';
 import 'models.dart';
 
 /// 文字コードを判定して文字列にする。UTF-8（BOMつきも可）を先に試し、だめならShift_JIS（Excelの日本語CSV）。
@@ -77,6 +78,14 @@ List<List<String>> parseCsv(String text) {
 
 const _synonyms = <String, List<String>>{
   'name': ['氏名', '名前', 'お名前', 'name', 'fullname'],
+  'companyKana': [
+    '会社名よみがな',
+    '会社名ふりがな',
+    '会社よみがな',
+    '会社ふりがな',
+    '会社名フリガナ',
+    'companykana',
+  ],
   'kana': ['よみがな', 'ふりがな', 'フリガナ', 'ヨミガナ', '読み', '読みがな', 'kana', 'furigana'],
   'company': [
     '会社名',
@@ -119,6 +128,7 @@ const _defaultOrder = [
   'url',
   'memo',
   'created',
+  'companyKana',
 ];
 
 String _norm(String s) => s.replaceAll(RegExp(r'[\s　"()（）]'), '').toLowerCase();
@@ -182,7 +192,8 @@ CsvResult cardsFromRows(List<List<String>> rows, {DateTime? now}) {
     cards.add(
       BizCard(
         name: name,
-        nameKana: v['kana'] ?? '',
+        nameKana: toHiragana(v['kana'] ?? ''),
+        companyKana: toHiragana(v['companyKana'] ?? ''),
         company: v['company'] ?? '',
         department: v['department'] ?? '',
         title: v['title'] ?? '',

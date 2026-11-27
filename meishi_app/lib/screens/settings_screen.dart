@@ -214,6 +214,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       'Webサイト',
       'メモ',
       '登録日時',
+      '会社名よみがな',
     ];
     final buf = StringBuffer('﻿${head.map(_csvCell).join(',')}\r\n');
     for (final c in cards) {
@@ -232,6 +233,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           c.url,
           c.memo,
           c.createdAt.toIso8601String(),
+          c.companyKana,
         ].map(_csvCell).join(','),
       );
       buf.write('\r\n');

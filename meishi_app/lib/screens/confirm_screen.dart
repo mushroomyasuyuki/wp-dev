@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../main.dart';
 import '../duplicates.dart';
+import '../kana.dart';
 import '../models.dart';
 
 /// 読み取り結果の確認・修正。新規登録と編集の両方で使う。
@@ -22,6 +23,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
     ('name', '氏名', TextInputType.name, 1),
     ('nameKana', 'よみがな', TextInputType.text, 1),
     ('company', '会社名', TextInputType.text, 1),
+    ('companyKana', '会社名のよみがな', TextInputType.text, 1),
     ('department', '部署', TextInputType.text, 1),
     ('title', '役職', TextInputType.text, 1),
     ('phone', '電話', TextInputType.phone, 1),
@@ -39,6 +41,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
       'name' => c.name,
       'nameKana' => c.nameKana,
       'company' => c.company,
+      'companyKana' => c.companyKana,
       'department' => c.department,
       'title' => c.title,
       'phone' => c.phone,
@@ -72,8 +75,9 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
     String v(String k) => _c[k]!.text.trim();
     c
       ..name = v('name')
-      ..nameKana = v('nameKana')
+      ..nameKana = toHiragana(v('nameKana'))
       ..company = v('company')
+      ..companyKana = toHiragana(v('companyKana'))
       ..department = v('department')
       ..title = v('title')
       ..phone = v('phone')
